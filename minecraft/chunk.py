@@ -3,23 +3,28 @@ import mmap
 import os
 import time
                
-# Chunk data model and interface
 class Chunk():
+    """Chunk data model and interface
+    
+    Chunks can be opened and saved directly, abstracting .mca files
+    """
     def __init__(self,
-        timestamp,
-        payload,
-        folder = None
+        timestamp : int,
+        payload : NBT,
+        folder : str = None
     ):
-        # Timestamp
+
         self.timestamp = timestamp
-        # Chunk NBT data
+        """Timestamp of last edit in epoch seconds"""
+
         self.payload = payload
-        
-        # Folder containing chunk
+        """NBT data (usually a TAG_Compound)"""
+
         self.folder = folder
-        
-        # Whether this chunk is still writeable
+        """Folder containing the .mca files, for writing"""
+
         self.closed = False
+        """Whether this chunk is still open"""
         
     def __eq__(self, other):
         if type(other) == Chunk:
@@ -34,21 +39,24 @@ class Chunk():
         self.payload[key] = value
         
     def __repr__(self):
+        """Shows chunk coordinates and formatted timestamp"""
         xPos = str( self['Level']['xPos'].payload )
         zPos = str( self['Level']['zPos'].payload )
         timestamp = time.asctime( time.localtime(self.timestamp) )
-        return (f'Chunk {xPos},{zPos} (Last edited {timestamp})')
+        return (f'Chunk at {xPos},{zPos} (Last edited {timestamp})')
         
-    def close(self, save=False):
+    def close(self, save : bool = False):
+        """Close file, save changes if save = True"""
         if (not self.closed) and save:
             self.write()
         self.closed = True
         
     def encode(self):
+        """Encode this chunk's payload"""
         return self.payload.encode()
         
     @classmethod
-    def from_world(cls, chunkX, chunkZ, world ):
+    def from_world(cls, chunkX : int, chunkZ : int, world : str):
     
         appdata = os.environ['APPDATA']
         folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
@@ -59,7 +67,8 @@ class Chunk():
         return self.payload.keys()
         
     @classmethod
-    def open(cls, chunkX, chunkZ, folder):
+    def open(cls, chunkX : int, chunkZ : int, folder : str):
+        """Open from folder if chunk exists"""
             
         regionX = chunkX//32
         regionZ = chunkZ//32
@@ -86,9 +95,16 @@ class Chunk():
                     payload = NBT.decode( MCA[offset+5 : offset+length+4], compression)
                 else:
                     raise FileNotFoundError('Chunk doesn\'t exist')
+                    
         return cls(timestamp, payload, folder)
             
     def write(self):
+        """Save chunk changes to file
+        
+        Resizes the file and offsets other chunks if needed
+        If chunk doesn't exist anymore, will raise FileNotFoundError
+        (In the future, will create a blank .mca instead)
+        """
         if self.closed:
             raise ValueError('I/O operation on closed file.')
         elif self.folder is None:

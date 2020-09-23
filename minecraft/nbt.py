@@ -17,28 +17,35 @@ TAG_COMPOUND = 10
 TAG_INT_ARRAY = 11
 TAG_LONG_ARRAY = 12
 
-# NBT tag data model and interface
 class NBT:
-    # Contructor, does NOT decode/decompress
-    def __init__(self, ID=0, payload=None, name=None, compression=None):
+    """NBT tag data model and interface"""
     
-            # Tag ID
-            self.ID = ID
-            
-            # Tag payload
-            if payload is not None and self.ID != 0:
-                self.payload = payload
-                    
-            # Tag name
-            if name is not None:
-                self.name = name
-                
-            # Compression method
-            if compression is not None:
-                self.compression = compression
+    def __init__(self,
+        ID : int = 0, 
+        payload = None, 
+        name : str = None, 
+        compression : int = None
+    ):
+        """Contructor, does NOT decode/decompress"""
 
-    # Test if two tags are the same
+        self.ID = ID
+        """The NBT TAG_ID of this tag"""
+        
+        if payload is not None and self.ID != 0:
+            self.payload = payload
+            """Data contained in this tag, may be nested NBT"""
+                
+        if name is not None:
+            self.name = name
+            """This tag's name, may be deprecated soon"""
+            
+        if compression is not None:
+            self.compression = compression
+            """How to recompress this tag"""
+
     def __eq__(self, other):
+        """Test if two tags are the same, ignoring names"""
+        
         if type(other) != NBT:
             return False
         elif self.ID != other.ID:
@@ -68,19 +75,19 @@ class NBT:
             else:
                 return self.payload == other.payload
     
-    # Length of array tags
     def __len__(self):
         return len(self.payload)
 
-    # Subscript accessor override
     def __getitem__(self, key):
         return self.payload[key]
-    
-    # Subscript assignment override
-    def __setitem__(self, key, value):
 
-        # ID of item
+    def __setitem__(self, key, value):
+        """Subscript assignment override, checks for proper value before assigning"""
+        
         itemID = self[key].ID
+
+        if type(value) == NBT:
+            value = value.payload
 
         # Check types ==
         if type(value) != type(self[key].payload):
@@ -105,9 +112,9 @@ class NBT:
                 
         # Assign Value
         self[key].payload = value
-    
-    # Returns SNBT
+
     def __repr__(self):
+        """Formats the tag into SNBT format"""
     
         snbt = ''
         if self.ID == TAG_END:
@@ -204,13 +211,16 @@ class NBT:
             
         return snbt
 
-    # Alias of __repr__
     def __str__(self):
+        """Alias of __repr__"""
         return repr(self)
         
-    # Decodes (compressed) bytes -> NBT
     @classmethod
-    def decode(cls, nbt = b'\x00', compression = None):
+    def decode(cls, nbt = b'\x00', compression : int = None):
+        """Decode (compressed) bytes -> NBT
+        
+        If compression is None, try gzip, zlib, uncompressed
+        """
 
         # Decode individual payload
         def decode_payload(ID):
@@ -352,9 +362,13 @@ class NBT:
                 compression = compression
             )
 
-    # Encodes NBT -> (compressed) bytes
-    def encode(self, newCompression = None):
-    
+    def encode(self, newCompression : int = None):
+        """Encode NBT -> (compressed) bytes
+        
+        If newCompression is None, use self.compression
+        If no self.compression, don't compress
+        """
+        
         # Encode individual payload
         def encode_payload(ID : int, tagPayload):
             # TagIDs are only defined up to 12
@@ -455,14 +469,13 @@ class NBT:
 
         return payload
 
-    # Get subtags, if applicable
     def keys(self):
         return self.payload.keys()
         
-    # Returns tag type str of ID
     @property
-    def typeStr(self):
-        def IDstr(ID):
+    def typeStr(self) -> str:
+        """A readable version of ID, with added info for TAG_List"""
+        def IDstr(ID : int) -> str:
             if ID == TAG_END:
                 return 'TAG_End'
             elif ID == TAG_BYTE:
