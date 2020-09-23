@@ -5,7 +5,7 @@ import struct
 import time
 import zlib
 
-from .chunk import Chunk, openChunk
+from .chunk import Chunk
 from .nbt import NBT
 from .opendat import openDAT
 from .openmca import openMCA

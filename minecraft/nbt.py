@@ -1,3 +1,4 @@
+import functools
 import gzip
 import struct
 import zlib
@@ -27,17 +28,6 @@ class NBT:
             # Tag payload
             if payload is not None and self.ID != 0:
                 self.payload = payload
-            
-            # Store type info
-            if self.ID == TAG_LIST:
-                try:
-                    elementID = self[0].ID
-                except IndexError:
-                    elementID = TAG_END
-                self.typeStr = f'{NBT.IDstr(self.ID)}({NBT.IDstr(elementID)})'
-            else:
-                # Type as str
-                self.typeStr = NBT.IDstr(self.ID)
                     
             # Tag name
             if name is not None:
@@ -50,10 +40,9 @@ class NBT:
     # Test if two tags are the same
     def __eq__(self, other):
         if type(other) != NBT:
-            print('Other was not NBT')
             return False
         elif self.ID != other.ID:
-            print(f'ID mismatch with {self.ID} and {other.ID}')
+            return False
         else:
             # For arrays / compounds / lists
             if (
@@ -77,12 +66,7 @@ class NBT:
             elif self.ID == 0:
                 return True
             else:
-                # Compare values
-                value = self.payload == other.payload
-                if value == False:
-                    print(f'Value mismatch with {self.payload} and {other.payload}')
-                return value
-    
+                return self.payload == other.payload
     
     # Length of array tags
     def __len__(self):
@@ -225,81 +209,69 @@ class NBT:
         return repr(self)
         
     # Decodes (compressed) bytes -> NBT
-    def decode( nbt = b'\x00', compression = None ):
+    @classmethod
+    def decode(cls, nbt = b'\x00', compression = None):
 
         # Decode individual payload
-        def decodePayload(tagID):
+        def decode_payload(ID):
             
             # TagIDs are only defined up to 12
-            if tagID > 12:
-                raise RuntimeError('Invalid tagID : ' + str(tagID) )
+            if ID > 12:
+                raise RuntimeError('Invalid tagID : ' + str(ID) )
                 
-            if tagID == TAG_COMPOUND:
+            elif ID == TAG_END:
+                return
+                
+            elif ID == TAG_COMPOUND:
             
                 payload = {}
-                # Checked once before in case of empty compound
-                itemID = decodePayload(TAG_BYTE)
-                
-                while itemID != 0:
-                    itemName = decodePayload(TAG_STRING)
-                    itemPayload = decodePayload(itemID)
-                    try :
-                        payload[itemName] = NBT(
-                            ID=itemID,
-                            payload=itemPayload,
-                            name=itemName
-                        )
-                    except TypeError:
-                        raise TypeError(str(itemID) + ' ' + str(itemName) + ' ' + str(itemPayload))
-                        
-                    # ID of next item
-                    itemID = decodePayload(TAG_BYTE)
+                for itemID in iter(functools.partial(decode_payload, ID=TAG_BYTE), TAG_END):
+                    itemName = decode_payload(TAG_STRING)
+                    itemPayload = decode_payload(itemID)
+                    payload[itemName] = cls(ID=itemID, payload=itemPayload)
+                return payload
                 
             else:
                 
                 if (
-                    tagID == TAG_BYTE_ARRAY 
-                    or tagID == TAG_LIST 
-                    or tagID == TAG_INT_ARRAY 
-                    or tagID == TAG_LONG_ARRAY
+                    ID == TAG_BYTE_ARRAY 
+                    or ID == TAG_LIST 
+                    or ID == TAG_INT_ARRAY 
+                    or ID == TAG_LONG_ARRAY
                 ):
                 
                     # Find recursive element ID
-                    if tagID == TAG_BYTE_ARRAY:
+                    if ID == TAG_BYTE_ARRAY:
                         itemID = TAG_BYTE
                         
-                    elif tagID == TAG_LIST:
-                        itemID = decodePayload(TAG_BYTE)
+                    elif ID == TAG_LIST:
+                        itemID = decode_payload(TAG_BYTE)
                         
-                    elif tagID == TAG_INT_ARRAY:
+                    elif ID == TAG_INT_ARRAY:
                         itemID = TAG_INT
                         
-                    elif tagID == TAG_LONG_ARRAY:
+                    elif ID == TAG_LONG_ARRAY:
                         itemID = TAG_LONG
                 
                     # Make Payload
-                    payload = []
-                    
-                    size = decodePayload(TAG_INT)
-                    for i in range(size):
-                        itemPayload = decodePayload(itemID)
-                        payload.append(NBT(ID=itemID, payload=itemPayload))
+                    size = decode_payload(TAG_INT)
+                    return [cls(ID=itemID, payload=decode_payload(itemID)) for i in range(size)]
                         
                 else:
                     # Calculate length
                     if (
-                        tagID == TAG_BYTE 
-                        or tagID == TAG_SHORT 
-                        or tagID == TAG_INT 
-                        or tagID == TAG_LONG
+                        ID == TAG_BYTE 
+                        or ID == TAG_SHORT 
+                        or ID == TAG_INT 
+                        or ID == TAG_LONG
                     ):
-                        payloadLength = 2 ** (tagID-1)
+                        payloadLength = 2 ** (ID-1)
                         
-                    elif tagID == TAG_FLOAT or tagID == TAG_DOUBLE:
-                        payloadLength = 2 ** (tagID-3)
+                    elif ID == TAG_FLOAT or ID == TAG_DOUBLE:
+                        payloadLength = 2 ** (ID-3)
                         
-                    elif tagID == TAG_STRING:
-                        payloadLength = decodePayload(TAG_SHORT)
+                    elif ID == TAG_STRING:
+                        payloadLength = decode_payload(TAG_SHORT)
                     
                     # Read Payload
                     payload = bytearray()
@@ -312,51 +284,43 @@ class NBT:
                                 payload += nextByte
                             # Sometimes the file returns ints and sometimes bytes
                             # If I ever find out why maybe I can simplify this
+                            # Probably to a list comprehension
                     except StopIteration:
                         pass
 
                     # Format Payload
-                    if tagID == TAG_BYTE:
-                        payload = int.from_bytes(payload, byteorder='big')
+                    if ID == TAG_BYTE:
+                        return int.from_bytes(payload, byteorder='big')
                         
                     elif (
-                        tagID == TAG_SHORT 
-                        or tagID == TAG_INT 
-                        or tagID == TAG_LONG
+                        ID == TAG_SHORT 
+                        or ID == TAG_INT 
+                        or ID == TAG_LONG
                     ):
-                        payload = int.from_bytes(payload, byteorder='big', signed=True)
+                        return int.from_bytes(payload, byteorder='big', signed=True)
                         
-                    elif tagID == TAG_FLOAT or tagID == TAG_DOUBLE:
+                    elif ID == TAG_FLOAT:
+                        return struct.unpack('>f', payload)[0]
+                    
+                    elif ID == TAG_DOUBLE:
+                        return struct.unpack('>d', payload)[0]
                         
-                        # Choose unpack mode
-                        if tagID == TAG_FLOAT:
-                            mode = '>f'
-                        elif tagID == TAG_DOUBLE:
-                            mode = '>d'
-                        
-                        # Unpack Payload
-                        [payload] = struct.unpack(mode, payload)
-                        
-                    elif tagID == TAG_STRING:
+                    elif ID == TAG_STRING:
                         try:
-                            payload = payload.decode()
+                            # This is str.decode, not NBT.decode
+                            return payload.decode()
                         except UnicodeDecodeError:
                             raise RuntimeError('Cannot decode '+ str(payload) +' to unicode')
-                        
-            return payload
           
         # Try all methods if compression is unknown
         if compression is None:
-            for tryCompression in [3,1,2]:
-                # Try uncompressed first to save computing time
+            for tryCompression in [1,2,3]:
                 try:
-                    payload = NBT.decode(nbt, tryCompression)
-                    break
+                    return cls.decode(nbt, tryCompression)
                 except:
                     continue
-            else:
-                # Runs if all compression methods failed
-                raise RuntimeError('Unknown compression method.')
+            # Runs if all compression methods failed
+            raise RuntimeError('Unknown compression method.')
 
         # Decompress and decode
         else:
@@ -376,48 +340,48 @@ class NBT:
             nbt = nbt.__iter__()
             
             # Get data
-            tagID = decodePayload(TAG_BYTE)
-            tagName = decodePayload(TAG_STRING)
-            tagPayload = decodePayload(tagID)
+            tagID = decode_payload(TAG_BYTE)
+            tagName = decode_payload(TAG_STRING)
+            tagPayload = decode_payload(tagID)
             
             # Format as NBT
-            payload = NBT(
+            return NBT(
                 ID=tagID, 
                 name=tagName, 
                 payload=tagPayload,
                 compression = compression
             )
 
-        return payload
-
     # Encodes NBT -> (compressed) bytes
     def encode(self, newCompression = None):
     
         # Encode individual payload
-        def encodePayload(tagID, tagPayload = {}):
+        def encode_payload(ID : int, tagPayload):
             # TagIDs are only defined up to 12
-            if tagID > 12:
-                raise RuntimeError( 'Invalid tagID : ' + str(tagID) )
+            if ID > 12:
+                raise RuntimeError( 'Invalid tagID : ' + str(ID) )
                 
             # Create empty payload
             payload = bytearray()
             
-            if tagID == TAG_COMPOUND:
+            if ID == TAG_COMPOUND:
                 for element in tagPayload:
                     # Recursively encode
-                    payload += tagPayload[element].encode()
+                    payload += encode_payload(TAG_BYTE, tagPayload[element].ID)
+                    payload += encode_payload(TAG_STRING, element)
+                    payload += encode_payload(tagPayload[element].ID, tagPayload[element].payload)
                 payload += (b'\x00')
                 
             else:
                 # For recursives
                 if (
-                    tagID == TAG_BYTE_ARRAY 
-                    or tagID == TAG_LIST 
-                    or tagID == TAG_INT_ARRAY
-                    or tagID == TAG_LONG_ARRAY
+                    ID == TAG_BYTE_ARRAY 
+                    or ID == TAG_LIST 
+                    or ID == TAG_INT_ARRAY
+                    or ID == TAG_LONG_ARRAY
                 ):
                 
-                    if tagID == TAG_LIST:
+                    if ID == TAG_LIST:
                         # Find elementID
                         try:
                             elementID = tagPayload[0].ID
@@ -425,56 +389,50 @@ class NBT:
                             elementID = TAG_END
                             
                         # Store elementID in payload
-                        payload += encodePayload(TAG_BYTE, elementID)
+                        payload += encode_payload(TAG_BYTE, elementID)
                         
                     # Store length in payload 
-                    payload += encodePayload(TAG_INT, len(tagPayload))
+                    payload += encode_payload(TAG_INT, len(tagPayload))
                     
                     # Make Payload
                     for element in tagPayload:
-                        payload += encodePayload(element.ID, element.payload)
+                        payload += encode_payload(element.ID, element.payload)
                     
                 # For non-recursives
                 else:
-                    if tagID == TAG_BYTE:
+                    if ID == TAG_BYTE:
                         payload += tagPayload.to_bytes(length=1, byteorder='big')
                         
                     elif (
-                        tagID == TAG_SHORT
-                        or tagID == TAG_INT
-                        or tagID == TAG_LONG
+                        ID == TAG_SHORT
+                        or ID == TAG_INT
+                        or ID == TAG_LONG
                     ):
-                            payload += tagPayload.to_bytes(length=(2**(tagID-1)), byteorder='big', signed=True)
+                            payload += tagPayload.to_bytes(length=(2**(ID-1)), byteorder='big', signed=True)
                         
-                    elif tagID==TAG_FLOAT or tagID==TAG_DOUBLE:
+                    elif ID == TAG_FLOAT:
+                        payload += struct.pack('>f', tagPayload)
                         
-                        # Choose unpack mode
-                        if tagID == TAG_FLOAT:
-                            mode = '>f'
-                        elif tagID == TAG_DOUBLE:
-                            mode = '>d'
-                        payload += struct.pack(mode, tagPayload)
+                    elif ID == TAG_DOUBLE:
+                        payload += struct.pack('>d', tagPayload)
                         
-                    elif tagID == TAG_STRING:
+                    elif ID == TAG_STRING:
                         # For strings
                         tagPayload = tagPayload.encode()
-                        payload += encodePayload(TAG_SHORT, len(tagPayload))
+                        payload += encode_payload(TAG_SHORT, len(tagPayload))
                         payload += tagPayload
                     
             return payload
         
         payload = bytearray()
-        # Encode TAG_ID
-        payload += encodePayload(TAG_BYTE, self.ID)
-
-        # Encode name if applicable
+        
+        # Make self payload
+        payload += encode_payload(TAG_BYTE, self.ID)
         try:
-            payload += encodePayload(TAG_STRING, self.name)
+            payload += encode_payload(TAG_STRING, self.name)
         except AttributeError:
             pass
-        
-        # Encode payload
-        payload += encodePayload(self.ID, self.payload)
+        payload += encode_payload(self.ID, self.payload)
             
         # Find out compression method
         try:
@@ -502,30 +460,41 @@ class NBT:
         return self.payload.keys()
         
     # Returns tag type str of ID
-    def IDstr(ID):
-        if ID == TAG_END:
-            return 'TAG_End'
-        elif ID == TAG_BYTE:
-            return 'TAG_Byte'
-        elif ID == TAG_SHORT:
-            return 'TAG_Short'
-        elif ID == TAG_INT:
-            return 'TAG_Int'
-        elif ID == TAG_LONG:
-            return 'TAG_Long'
-        elif ID == TAG_FLOAT:
-            return 'TAG_Float'
-        elif ID == TAG_DOUBLE:
-            return 'TAG_Double'
-        elif ID == TAG_BYTE_ARRAY:
-            return 'TAG_Byte_Array'
-        elif ID == TAG_STRING:
-            return 'TAG_String'
-        elif ID == TAG_LIST:
-            return 'TAG_List'
-        elif ID == TAG_COMPOUND:
-            return 'TAG_Compound'
-        elif ID == TAG_INT_ARRAY:
-            return 'TAG_Int_Array'
-        elif ID == TAG_LONG_ARRAY:
-            return 'TAG_Long_Array'
+    @property
+    def typeStr(self):
+        def IDstr(ID):
+            if ID == TAG_END:
+                return 'TAG_End'
+            elif ID == TAG_BYTE:
+                return 'TAG_Byte'
+            elif ID == TAG_SHORT:
+                return 'TAG_Short'
+            elif ID == TAG_INT:
+                return 'TAG_Int'
+            elif ID == TAG_LONG:
+                return 'TAG_Long'
+            elif ID == TAG_FLOAT:
+                return 'TAG_Float'
+            elif ID == TAG_DOUBLE:
+                return 'TAG_Double'
+            elif ID == TAG_BYTE_ARRAY:
+                return 'TAG_Byte_Array'
+            elif ID == TAG_STRING:
+                return 'TAG_String'
+            elif ID == TAG_LIST:
+                return 'TAG_List'
+            elif ID == TAG_COMPOUND:
+                return 'TAG_Compound'
+            elif ID == TAG_INT_ARRAY:
+                return 'TAG_Int_Array'
+            elif ID == TAG_LONG_ARRAY:
+                return 'TAG_Long_Array'
+                
+        if self.ID == 9:
+            try:
+                return f'{IDstr(self.ID)}({IDstr(elementID)})'
+            except IndexError:
+                return f'{IDstr(self.ID)}({IDstr(TAG_END)})'
+        else:
+            return IDstr(self.ID)
+        

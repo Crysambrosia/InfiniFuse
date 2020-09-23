@@ -8,7 +8,7 @@ class Chunk():
     def __init__(self,
         timestamp,
         payload,
-        folder
+        folder = None
     ):
         # Timestamp
         self.timestamp = timestamp
@@ -47,12 +47,52 @@ class Chunk():
     def encode(self):
         return self.payload.encode()
         
+    @classmethod
+    def from_world(cls, chunkX, chunkZ, world ):
+    
+        appdata = os.environ['APPDATA']
+        folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
+        
+        return cls.open(chunkX, chunkZ, folder)
+         
     def keys(self):
         return self.payload.keys()
         
+    @classmethod
+    def open(cls, chunkX, chunkZ, folder):
+            
+        regionX = chunkX//32
+        regionZ = chunkZ//32
+        fileName = (f'{folder}\\r.{regionX}.{regionZ}.mca')
+        
+        # Find chunk header location
+        header = 4*(chunkX + chunkZ*32)
+            
+        with open(fileName, mode='r+b') as MCAFile:
+            with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_READ) as MCA:
+                
+                # Read header
+                offset = 4096 * int.from_bytes( MCA[header:header+3], 'big')
+                sectorCount = MCA[header+3]
+                timestamp = int.from_bytes( MCA[header+4096:header+4100], 'big')
+                
+                # If chunk exists
+                if sectorCount > 0 and offset >= 2:
+                    
+                    # Read chunk data properties
+                    length = int.from_bytes(MCA[offset:offset+4], 'big')
+                    compression = MCA[offset+4]
+                    # Reac chunk data
+                    payload = NBT.decode( MCA[offset+5 : offset+length+4], compression)
+                else:
+                    raise FileNotFoundError('Chunk doesn\'t exist')
+        return cls(timestamp, payload, folder)
+            
     def write(self):
         if self.closed:
             raise ValueError('I/O operation on closed file.')
+        elif self.folder is None:
+            raise ValueError('.folder has no value')
         else:
         
             # Change timestamp to now
@@ -117,56 +157,3 @@ class Chunk():
                     MCA[offset+4] = compression
                     MCA[offset+5 : offset + length + 4] = payload
                     
-def openChunk(
-    chunkX = 0,
-    chunkZ = 0,
-    folder = None,
-    world = None
-):
-    # Format file name
-    if world is not None:
-        # Using world/chunkX/chunkZ
-        appdata = os.environ['APPDATA']
-        folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
-        
-    elif folder is not None:
-        
-        # Using complete file name
-        formattedFolder = ''
-        # Format to using \\
-        for character in folder:
-            if character == '/':
-                formattedFolder += '\\'
-            else:
-                formattedFolder += character
-        folder = formattedFolder
-        
-    else:
-        raise ValueError('Either folder or world is required')
-        
-    regionX = chunkX//32
-    regionZ = chunkZ//32
-    fileName = (f'{folder}\\r.{regionX}.{regionZ}.mca')
-    
-    # Find chunk header location
-    header = 4*(chunkX + chunkZ*32)
-        
-    with open(fileName, mode='r+b') as MCAFile:
-        with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_READ) as MCA:
-            
-            # Read header
-            offset = 4096 * int.from_bytes( MCA[header:header+3], 'big')
-            sectorCount = MCA[header+3]
-            timestamp = int.from_bytes( MCA[header+4096:header+4100], 'big')
-            
-            # If chunk exists
-            if sectorCount > 0 and offset >= 2:
-                
-                # Read chunk data properties
-                length = int.from_bytes(MCA[offset:offset+4], 'big')
-                compression = MCA[offset+4]
-                # Reac chunk data
-                payload = NBT.decode( MCA[offset+5 : offset+length+4], compression)
-            else:
-                raise FileNotFoundError('Chunk doesn\'t exist')
-    return Chunk(timestamp, payload, folder)
