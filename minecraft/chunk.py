@@ -61,13 +61,13 @@ class Chunk():
         appdata = os.environ['APPDATA']
         folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
         
-        return cls.open(chunkX, chunkZ, folder)
+        return cls.read(chunkX, chunkZ, folder)
          
     def keys(self):
         return self.payload.keys()
         
     @classmethod
-    def open(cls, chunkX : int, chunkZ : int, folder : str):
+    def read(cls, chunkX : int, chunkZ : int, folder : str):
         """Open from folder if chunk exists"""
             
         regionX = chunkX//32
