@@ -54,7 +54,15 @@ class Chunk():
     def encode(self):
         """Encode this chunk's payload"""
         return self.payload.encode()
-        
+       
+    @property
+    def file(self):
+        if self.folder is None:
+            raise ValueError(f'{repr(self)} has no folder !')
+        regionX = self['Level']['xPos'].payload // 32
+        regionZ = self['Level']['zPos'].payload // 32
+        return f'{self.folder}\\r.{regionX}.{regionZ}.mca'
+       
     @classmethod
     def from_world(cls, chunkX : int, chunkZ : int, world : str):
     
@@ -68,14 +76,14 @@ class Chunk():
         
     @classmethod
     def read(cls, chunkX : int, chunkZ : int, folder : str):
-        """Open from folder if chunk exists"""
+        """Open from folder"""
             
         regionX = chunkX//32
         regionZ = chunkZ//32
         fileName = (f'{folder}\\r.{regionX}.{regionZ}.mca')
         
         # Find chunk header location
-        header = 4*(chunkX + chunkZ*32)
+        header = (4 * (chunkX + chunkZ*32)) % 1024
             
         with open(fileName, mode='r+b') as MCAFile:
             with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_READ) as MCA:
@@ -91,85 +99,75 @@ class Chunk():
                     # Read chunk data properties
                     length = int.from_bytes(MCA[offset:offset+4], 'big')
                     compression = MCA[offset+4]
-                    # Reac chunk data
+                    # Read chunk data
                     payload = NBT.decode( MCA[offset+5 : offset+length+4], compression)
                 else:
-                    raise FileNotFoundError('Chunk doesn\'t exist')
+                    raise FileNotFoundError(f'Chunk doesn\'t exist ({offset},{sectorCount})')
                     
         return cls(timestamp, payload, folder)
             
     def write(self):
-        """Save chunk changes to file
+        """Save chunk changes to file.
         
-        Resizes the file and offsets other chunks if needed
-        If chunk doesn't exist anymore, will raise FileNotFoundError
-        (In the future, will create a blank .mca instead)
+        Will resize file if chunk changed size.
+        Will create missing file.
         """
         if self.closed:
             raise ValueError('I/O operation on closed file.')
-        elif self.folder is None:
-            raise ValueError('.folder has no value')
-        else:
         
-            # Change timestamp to now
-            self.timestamp = int(time.mktime(time.localtime()))
-            
-            # Prepare Data
-            payload = self.encode()
-            length = len(payload)+1
-            compression = self.payload.compression
-            
-            # Reconstruct file name
-            chunkX = self['Level']['xPos'].payload
-            chunkZ = self['Level']['zPos'].payload
-            regionX = chunkX // 32
-            regionZ = chunkZ // 32
-            fileName = (f'{self.folder}\\r.{regionX}.{regionZ}.mca')
-            
-            # Find chunk header location
-            header = 4*(chunkX + chunkZ*32)
-            
-            with open(fileName, mode='r+b') as MCAFile:
-                with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_WRITE) as MCA:
+        # Change timestamp to now
+        self.timestamp = int(time.time())
+        
+        # Create .mca file if it does not exist
+        if not os.path.exists(self.file):
+            with open(self.file, mode='w+b') as MCAFile:
+                for i in range(8192):
+                    MCAFile.write(b'\x00')
+                
+        # Find chunk header location
+        header = (4 * (self['Level']['xPos'].payload + self['Level']['zPos'].payload*32)) % 1024
+        
+        # Prepare Data
+        payload = self.encode()
+        length = len(payload)+1
+        compression = self.payload.compression
+        
+        with open(self.file, mode='r+b') as MCAFile:
+            with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_WRITE) as MCA:
+                
+                offset = int.from_bytes( MCA[header:header+3], 'big')
+                if offset == 0:
+                    offset = max(2,*[int.from_bytes(MCA[i*4:i*4+3], 'big')+MCA[i*4+3] for i in range(1024)])
+                
+                oldSectorCount = MCA[header+3]
+                newSectorCount = 1+( length//4096 )
+                sectorChange = newSectorCount - oldSectorCount
+                
+                if sectorChange:
+                    # Change offsets for following chunks
+                    for i in range(1024):
+                        oldOffset = int.from_bytes(MCA[i*4 : i*4+3], 'big')
+                        
+                        if oldOffset > offset:
+                            MCA[i*4 : i*4+3] = (oldOffset + sectorChange).to_bytes(3, 'big')
                     
-                    offset = int.from_bytes( MCA[header:header+3], 'big')
-                    oldSectorCount = MCA[header+3]
-                    newSectorCount = 1+( length//4096 )
+                    # Move following chunks
+                    oldStart = 4096 * (offset+oldSectorCount)
+                    data = MCA[oldStart:]
                     
-                    # Move following chunks if size changed
-                    if newSectorCount != oldSectorCount:
-                        
-                        sectorChange = newSectorCount - oldSectorCount
-                        # Change offsets for following chunks
-                        for i in range(0, 4096, 4):
-                        
-                            oldOffset = int.from_bytes(MCA[i:i+3], 'big')
-                            
-                            if oldOffset > offset:
-                                newOffset = oldOffset + sectorChange
-                                MCA[i:i+3] = newOffset.to_bytes(3, 'big')
-                                print(f'Changed offset of {i//4} from {oldOffset} to {newOffset}')
-                        
-                        # Prepare data move
-                        oldStart = 4096 * (offset+newSectorCount)
-                        newStart = oldStart+( 4096*sectorChange )
-                        dataLength = len(MCA) - oldStart
-                        data = MCA[oldStart:oldStart+dataLength]
-                        
-                        # Resize file
-                        MCA.resize( len(MCA)+( sectorChange*4096 ) )
-                        
-                        # Move data
-                        MCA[newStart:newStart+dataLength] = data
-                        
-                    # Write sector count
-                    MCA[header+3] = newSectorCount
-                    # Write timestamp
-                    MCA[header+4096:header+4100] = self.timestamp.to_bytes(4, 'big')
-                    # Convert offset to 4KiB
-                    offset *= 4096
-                    # Write Data
-                    MCA[offset:offset+4] = length.to_bytes(4, 'big')
-                    MCA[offset+4] = compression
-                    MCA[offset+5 : offset + length + 4] = payload
+                    MCA.resize(len(MCA) + (sectorChange * 4096))
+                    
+                    newStart = oldStart+(4096 * sectorChange)
+                    MCA[newStart:] = data
+                    
+                # Write header
+                MCA[header:header+3] = offset.to_bytes(3, 'big')
+                MCA[header+3] = newSectorCount
+                MCA[header+4096:header+4100] = self.timestamp.to_bytes(4, 'big')
+                
+                # Write Data
+                offset *= 4096
+                MCA[offset:offset+4] = length.to_bytes(4, 'big')
+                MCA[offset+4] = compression
+                MCA[offset+5 : offset + length + 4] = payload
                     
