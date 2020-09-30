@@ -22,58 +22,31 @@ class NBT:
     
     def __init__(self,
         ID : int = 0, 
-        payload = None, 
-        name : str = None, 
-        compression : int = None
+        name : str = '',
+        payload = None,  
+        compression : int = 3
     ):
         """Contructor, does NOT decode/decompress"""
 
         self.ID = ID
         """The NBT TAG_ID of this tag"""
         
-        if payload is not None and self.ID != 0:
-            self.payload = payload
-            """Data contained in this tag, may be nested NBT"""
+        self.payload = payload
+        """Data contained in this tag"""
                 
-        if name is not None:
-            self.name = name
-            """This tag's name, may be deprecated soon"""
+        self.name = name
+        """This tag's name"""
             
-        if compression is not None:
-            self.compression = compression
-            """How to recompress this tag"""
+        self.compression = compression
+        """How to recompress this tag"""
 
     def __eq__(self, other):
         """Test if two tags are the same, ignoring names"""
         
-        if type(other) != NBT:
-            return False
-        elif self.ID != other.ID:
-            return False
+        if type(other) == NBT:
+            return other.payload == self.payload
         else:
-            # For arrays / compounds / lists
-            if (
-                self.ID == TAG_BYTE_ARRAY 
-                or self.ID == TAG_LIST
-                or self.ID == TAG_COMPOUND
-                or self.ID == TAG_INT_ARRAY
-                or self.ID == TAG_LONG_ARRAY
-            ):
-                # Make one iteratable out of both
-                zipped = zip(self.payload, other.payload)
-                # Recursively compare all values
-                for selfElement, otherElement in zipped:
-                    if selfElement != otherElement:
-                        print(f'Element mismatch with {selfElement} and {otherElement}')
-                        return False
-                        break
-                else:
-                    return True
-                    
-            elif self.ID == 0:
-                return True
-            else:
-                return self.payload == other.payload
+            return other == self.payload
     
     def __len__(self):
         return len(self.payload)
@@ -238,7 +211,8 @@ class NBT:
                 for itemID in iter(functools.partial(decode_payload, ID=TAG_BYTE), TAG_END):
                     itemName = decode_payload(TAG_STRING)
                     itemPayload = decode_payload(itemID)
-                    payload[itemName] = cls(ID=itemID, payload=itemPayload)
+                    payload[itemName] = cls(ID=itemID, payload=itemPayload, name=itemName)
+                    # Storing name twice enables partial NBT encoding
                 return payload
                 
             else:
@@ -335,18 +309,15 @@ class NBT:
         # Decompress and decode
         else:
         
-            # Decompresss input
             if compression == 1:
                 nbt = gzip.decompress(nbt)
             elif compression == 2:
                 nbt = zlib.decompress(nbt)
             elif compression == 3:
-                # 3 means no compression
                 pass
             else:
                 raise ValueError(f'Unknown compression method {compression}')
         
-            # Make input iteratable,
             nbt = nbt.__iter__()
             
             # Get data
@@ -354,10 +325,9 @@ class NBT:
             tagName = decode_payload(TAG_STRING)
             tagPayload = decode_payload(tagID)
             
-            # Format as NBT
             return NBT(
                 ID=tagID, 
-                name=tagName, 
+                name = tagName,
                 payload=tagPayload,
                 compression = compression
             )
