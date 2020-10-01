@@ -392,7 +392,7 @@ class NBT:
                         or ID == TAG_INT
                         or ID == TAG_LONG
                     ):
-                            payload += tagPayload.to_bytes(length=(2**(ID-1)), byteorder='big', signed=True)
+                        payload += tagPayload.to_bytes(length=(2**(ID-1)), byteorder='big', signed=True)
                         
                     elif ID == TAG_FLOAT:
                         payload += struct.pack('>f', tagPayload)
