@@ -324,11 +324,11 @@ class TAG_AbstractArray(ABC, MutableSequence):
     Should NEVER be instanciated directly !
     """
     
-    def __init__(self, payload):
-        self.payload = payload
+    def __init__(self, value = []):
+        self.value = value
 
     def __getitem__(self, key):
-        return self.payload[key]
+        return self.value[key]
         
     def __setitem__(self, key, value):
         if type(value) != self.elementID:
@@ -339,10 +339,10 @@ class TAG_AbstractArray(ABC, MutableSequence):
         del self[key]
         
     def __len__(self):
-        return len(self.payload)
+        return len(self.value)
         
     def insert(self, key, value):
-        self.payload = self[:key] + [value] + self[key:]
+        self.value = self[:key] + [value] + self[key:]
 
     @classmethod
     def encode(cls, value):
