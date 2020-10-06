@@ -1,12 +1,21 @@
 from abc import ABC, abstractmethod
-from collections.abc import MutableMapping, MutableSequence
+from collections.abc import MutableMapping, MutableSequence, Sequence
 import functools
 import gzip
 import math
 import struct
 import zlib
 
-class TAG_AbstractValue(ABC):
+class TAG_Abstract():
+    """Abstract Base Class of all tag types"""
+    
+    def __getattr__(self, name):
+        try:
+            return getattr(self.value, name)
+        except AttributeError:
+            raise AttributeError(f'{self.__class__} object has no attribute {name}')
+
+class TAG_AbstractValue(TAG_Abstract):
     """Abstract Base Class for all simple value tag types"""
     
     ID = NotImplemented
@@ -34,17 +43,11 @@ class TAG_AbstractValue(ABC):
     def __eq__(self, other):
         return self.value == other
 
-    def __float__(self):
-        return float(self.value)
-
     def __ge__(self, other):
         return self.value >= other
 
     def __gt__(self, other):
         return self.value > other
-
-    def __int__(self):
-        return int(self.value)
 
     def __le__(self, other):
         return self.value <= other
@@ -75,11 +78,12 @@ class TAG_AbstractNumber(TAG_AbstractValue):
     snbt = NotImplemented
     """SNBT value identifier"""
 
+
     @classmethod
     def decode(cls, value):
         """Convert bytes -> value for this TAG_ID"""
         return struct.unpack(cls.fmt, value)[0]
-
+    
     @classmethod
     def encode(cls, value):
         """Convert value for this TAG_ID -> bytes"""
@@ -90,9 +94,6 @@ class TAG_AbstractNumber(TAG_AbstractValue):
 
     def __radd__(self, other):
         return other + self.value
-    
-    def __bool__(self):
-        return bool(self.value)
 
     def __ceil__(self):
         return self.__class__( math.ceil(self.value) )
@@ -159,7 +160,7 @@ class TAG_AbstractInteger(TAG_AbstractNumber):
     def __rand__(self, other):
         return other & self.value
 
-    def __index__(self, other):
+    def __index__(self):
         return self.value.__index__()
 
     def __invert__(self):
@@ -189,17 +190,6 @@ class TAG_AbstractInteger(TAG_AbstractNumber):
     def __rxor__(self, other):
         return other ^ self.value
 
-class TAG_AbstractDecimal(TAG_AbstractNumber):
-    """Abstract Base Class for decimal tag types"""
-    def as_integer_ratio(self):
-        return self.value.as_integer_ratio()
-    
-    def conjugate(self):
-        return self.value.conjugate()
-
-    def is_integer(self):
-        return self.value.is_integer()
-
 class TAG_Byte(TAG_AbstractInteger):
     
     ID = 1
@@ -228,36 +218,86 @@ class TAG_Long(TAG_AbstractInteger):
     snbt = 'L'
     valueType = int
  
-class TAG_Float(TAG_AbstractDecimal):
+class TAG_Float(TAG_AbstractNumber):
 
     ID = 5
     fmt = '>f'
     snbt = 'f'
     valueType = float
 
-class TAG_Double(TAG_AbstractDecimal):
+class TAG_Double(TAG_AbstractNumber):
     
     ID = 6
     fmt = '>d'
     snbt = 'd'
     valueType = float
 
-class TAG_String(TAG_AbstractValue):
+class TAG_AbstractSequence(TAG_Abstract, Sequence):
+    """Abstract Base Class for sequence tag types"""
+
+    def __getitem__(self, key):
+        return self.value[key]
+
+    def __len__(self):
+        return len(self.value)
+
+class TAG_String(TAG_AbstractValue, TAG_AbstractSequence):
+    """A NBT tag representing a unicode string
+    
+    Payload : a Short for length, then a length bytes long UTF-8 string
+    """
 
     ID = 8
-    
-    
-    
+    valueType = str
+
+    @staticmethod
+    def decode(value):
+        """Return decoded str, ignoring the length indicating bytes"""
+        return value[2:].decode(encoding='utf-8')
+
+    @staticmethod
     def encode(value):
+        """Encode a str to bytes, adding first two bytes representing length"""
         value = str.encode(value)
         
         encoded = TAG_Short.encode(len(value))
         encoded += value
         
         return encoded
+
+    def casefold(self):
+        return self.__class__( self.value.casefold() )
+
+    def format_map(self, mapping):
+        return self.__class__( self.value.format_map(mapping) )
+
+    def lstrip(self, *args):
+        return self.__class__( self.value.lstrip(*args) )
+    
+    def ljust(self, *args):
+        return self.__class__( self.value.ljust(*args) )
+
+    def lower(self):
+        return self.__class__( self.value.lower() )
+
+    def rjust(self, *args):
+        return self.__class__( self.value.rjust(*args) )
+
+    def upper(self):
+        return self.__class__( self.value.upper() )
+
+    def __repr__(self):
+        """Return SNBT formatted string"""
+        snbt = '"'
         
-    def decode(value):
-        return value[2:].decode(encoding='utf-8')
+        for character in self.value:
+            if character == '"':
+                snbt += '\"'
+            else:
+                snbt += character
+
+        snbt += '"'
+        return snbt
 
 class TAG_Compound(MutableMapping):
     """A MutableMapping subclass with NBT specific functionality"""
@@ -319,7 +359,7 @@ class TAG_List(MutableSequence):
             
         return encoded
   
-class TAG_AbstractArray(ABC, MutableSequence):
+class TAG_AbstractArray(TAG_AbstractSequence, MutableSequence):
     """Base class for all Array tag types
     Should NEVER be instanciated directly !
     """
@@ -327,9 +367,6 @@ class TAG_AbstractArray(ABC, MutableSequence):
     def __init__(self, value = []):
         self.value = value
 
-    def __getitem__(self, key):
-        return self.value[key]
-        
     def __setitem__(self, key, value):
         if type(value) != self.elementID:
             value = self.elementID(value)
@@ -337,10 +374,7 @@ class TAG_AbstractArray(ABC, MutableSequence):
         
     def __delitem__(self, key):
         del self[key]
-        
-    def __len__(self):
-        return len(self.value)
-        
+
     def insert(self, key, value):
         self.value = self[:key] + [value] + self[key:]
 
