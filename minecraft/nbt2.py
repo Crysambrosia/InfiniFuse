@@ -8,12 +8,17 @@ import zlib
 
 class TAG_Abstract():
     """Abstract Base Class of all tag types"""
-    
+    pass
+    """
     def __getattr__(self, name):
+        if name in self.rewired:
+            # Enables all methods supported by self.value, without losing the tag's type and additional features
+            return lambda *args, **kwargs : self.__class__( self.value.__getattribute__(name)(*args,**kwargs) )
         try:
             return getattr(self.value, name)
         except AttributeError:
             raise AttributeError(f'{self.__class__} object has no attribute {name}')
+    """
 
 class TAG_AbstractValue(TAG_Abstract):
     """Abstract Base Class for all simple value tag types"""
@@ -265,26 +270,78 @@ class TAG_String(TAG_AbstractValue, TAG_AbstractSequence):
         
         return encoded
 
+    def capitalize(self):
+        return self.__class__( self.value.capitalize() )
+
     def casefold(self):
         return self.__class__( self.value.casefold() )
+
+    def center(self, width, fillchar=' '):
+        return self.__class__( self.value.center(width, fillchar) )
+
+    def expandtabs(self, tabsize=8):
+        return self.__class__( self.value.expandtabs(tabsize) )
+
+    def format(self, *args, **kwargs):
+        return self.__class__( self.value.format(*args, *kwargs) )
 
     def format_map(self, mapping):
         return self.__class__( self.value.format_map(mapping) )
 
-    def lstrip(self, *args):
-        return self.__class__( self.value.lstrip(*args) )
+    def join(self, iterable):
+        iterable = [i if isinstance(i, str) else str(i) for i in iterable]
+        return self.__class__( self.value.join(iterable) )
+
+    def lstrip(self, chars=None):
+        return self.__class__( self.value.lstrip(chars) )
     
-    def ljust(self, *args):
-        return self.__class__( self.value.ljust(*args) )
+    def ljust(self, width, fillchar=' '):
+        return self.__class__( self.value.ljust(width, fillchar) )
 
     def lower(self):
         return self.__class__( self.value.lower() )
 
-    def rjust(self, *args):
-        return self.__class__( self.value.rjust(*args) )
+    def partition(self, sep):
+        return tuple( [self.__class__(i) for i in self.value.partition(sep)] )
+
+    def replace(self, old, new, count=-1):
+        return self.__class__()
+
+    def rjust(self, width, fillchar=' '):
+        return self.__class__( self.value.rjust(width, fillchar) )
+
+    def rpartition(self, sep):
+        return tuple( [self.__class__(i) for i in self.value.rpartition(sep)] )
+
+    def rsplit(self, sep=None, maxsplit=-1):
+        return [self.__class__(i) for i in self.value.rsplit(sep, maxsplit)]
+
+    def rstrip(self, chars=None):
+        return self.__class__( self.value.rstrip(chars) )
+    
+    def split(self, sep=None, maxsplit=-1):
+        return [self.__class__(i) for i in self.value.split(sep, maxsplit)]
+
+    def splitlines(self, keepends=False):
+        return [self.__class__(i) for i in self.value.splitlines(keepends)]
+    
+    def strip(self, chars=None):
+        return self.__class__( self.value.strip(chars) )
+    
+    def swapcase(self):
+        return self.__class__( self.value.swapcase() )
+
+    def title(self):
+        return self.__class__( self.value.title() )
+    
+    def translate(self, table):
+        return self.__class__( self.value.translate(map) )
 
     def upper(self):
         return self.__class__( self.value.upper() )
+
+    def zfill(self, width):
+        return self.__class__( self.zfill(width) )
 
     def __repr__(self):
         """Return SNBT formatted string"""
@@ -298,6 +355,9 @@ class TAG_String(TAG_AbstractValue, TAG_AbstractSequence):
 
         snbt += '"'
         return snbt
+    
+    def __str__(self):
+        return self.value
 
 class TAG_Compound(MutableMapping):
     """A MutableMapping subclass with NBT specific functionality"""
