@@ -1,4 +1,4 @@
-from .nbt import NBT
+from minecraft.old_nbt import NBT
 import os
 import gzip
 import zlib

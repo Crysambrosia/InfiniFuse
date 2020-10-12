@@ -1,4 +1,4 @@
-from .nbt import NBT
+from minecraft.old_nbt import NBT
 import mmap
 import os
 import time
