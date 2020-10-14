@@ -7,4 +7,4 @@ import zlib
 
 from .chunk import Chunk
 from .nbt import *
-from .datfile import DatFile
+from .old_datfile import DatFile
