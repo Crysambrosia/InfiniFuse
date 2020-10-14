@@ -1,7 +1,7 @@
 import math
 import pytest
 import struct
-from .nbt2 import *
+from minecraft.nbt import *
 
 
 class TagTester():
