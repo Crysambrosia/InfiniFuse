@@ -1,0 +1,93 @@
+from collections.abc import MutableMapping
+from .compression import compress, decompress
+from util import make_wrappers
+import minecraft.nbt as nbt
+import os
+
+class DatFile(MutableMapping):
+    """Interface for .dat files"""
+
+    def __init__( self, 
+        value       : nbt.TAG_Compound = None, 
+        compression : int = 3, 
+        filePath    : str = None
+    ):
+        
+        self.value = nbt.TAG_Compound() if value is None else value
+        """NBT data as a TAG_Compound"""
+        
+        self.compression = compression
+        """Compression type of contained data"""
+        
+        self._filePath = filePath
+        """File path for writing"""
+
+        self.closed = False
+        """Whether this file is still open"""
+
+    def close(self, save : bool = False):
+        """Close file, save changes if save = True"""
+        if (not self.closed) and save:
+            self.write()
+        self.closed = True
+    
+    @property
+    def filePath(self):
+        """Returns a clear error in case of invalid file operations"""
+        if self._filePath is None:
+            raise ValueError(f'{repr(self)} has no folder !')
+        else:
+            return self._filePath
+    
+    @filePath.setter
+    def filePath(self, newValue):
+        self._filePath = newValue
+
+    @classmethod
+    def open(cls, filePath : str):
+        """Open from direct file path"""
+        
+        # Format file name for repr
+        formattedFile = ''
+        for character in filePath:
+            if character == '/':
+                formattedFile += '\\'
+            else:
+                formattedFile += character
+        filePath = formattedFile
+        
+        with open(filePath, mode='rb') as f:
+            data = f.read()
+        data, compression = decompress(data)
+        
+        return cls(
+            value = nbt.TAG_Compound.from_bytes(data), 
+            compression = compression, 
+            filePath = filePath
+        )
+
+    def write(self):
+        """Save data changes to file"""
+        if self.closed:
+            raise ValueError('I/O operation on closed file.')
+        else:
+            with open(self.filePath, mode='w+b') as f:
+                f.write(compress(data = self.to_bytes(), compression = self.compression))
+
+    def __repr__(self):
+        try:
+            return f'DatFile at {self.filePath}'
+        except ValueError:
+            return 'DatFile (no file path)'
+
+make_wrappers( DatFile, 
+    nonCoercedMethods = [
+        'to_bytes',
+        '__delitem__', 
+        '__eq__', 
+        '__getitem__', 
+        '__iter__',
+        '__len__',
+        '__setitem__'
+    ]
+)
