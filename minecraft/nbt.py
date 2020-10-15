@@ -1,59 +1,10 @@
 from abc import ABC, abstractmethod
 from collections.abc import MutableMapping, MutableSequence, Sequence
+from .compression import compress, decompress
+from util import make_wrappers, read_bytes
 import functools
 import operator
 import struct
-
-def make_wrappers(cls, coercedMethods=[], nonCoercedMethods=[]):
-    """Make wrapper methods for the given class, rewiring self.method -> self.value.method
-
-    coercedMethods    : return value of same type as self
-    nonCoercedMethods : return something else
-    
-    This reduces the likeliness of errors greatly, and should make code easier to understand
-    Checks if method in dir(operator), for proper reverse operator handling
-    ( when something is NotImplemented )
-    """
-
-    for method in coercedMethods:
-        if method in dir(operator):
-            def wrapper(self, *args, _method=method, **kwargs):
-                return type(self)( getattr(operator, _method)(self.value, *args, **kwargs) )
-            setattr(cls, method, wrapper)
-        else:
-            def wrapper(self, *args, _method=method, **kwargs):
-                return type(self)( getattr(self.value, _method)(*args, **kwargs) )
-            setattr(cls, method, wrapper)
-    
-    for method in nonCoercedMethods:
-        if method in dir(operator):
-            def wrapper(self, *args, _method=method, **kwargs):
-                return getattr(operator, _method)(self.value, *args, **kwargs)
-            setattr(cls, method, wrapper)
-        else:
-            def wrapper(self, *args, _method=method, **kwargs):
-                return getattr(self.value, _method)(*args, **kwargs)
-            setattr(cls, method, wrapper)
-    
-    # This makes sure ABC doesn't refuse instanciation
-    cls.__abstractmethods__ = cls.__abstractmethods__.difference(coercedMethods, nonCoercedMethods)
-    
-def read_bytes(iterable, n=0):
-    """Read n bytes from the iterable and return them as a bytearray"""
-
-    iterator = iter(iterable)
-    value = bytearray()
-    
-    for i in range(n):
-        
-        nextByte = next(iterator)
-        
-        if isinstance(nextByte, int):
-            value.append(nextByte)
-        elif isinstance(nextByte, bytes):
-            value += next(iterator)
-    
-    return value
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -212,7 +163,7 @@ make_wrappers( TAG_Integer,
 class TAG_Decimal(TAG_Number):
     """Abstract Base Class for decimal numerical tag types"""
     
-    valuetype = float
+    valueType = float
     
     @classmethod
     def fromhex(cls, string):
@@ -267,6 +218,8 @@ class TAG_MutableSequence(TAG_Sequence, MutableSequence):
         
         for element in self:
             encoded += element.to_bytes()
+            if isinstance(element, TAG_Compound):
+                encoded += TAG_End().to_bytes()
     
         return encoded
     
@@ -280,14 +233,11 @@ class TAG_MutableSequence(TAG_Sequence, MutableSequence):
         return f'[{self.snbt}{",".join( [repr(i) for i in self.value] )}]'
 
     def __setitem__(self, key, value):
+        """Replace self[key] with value.
+        
+        Value must be able to convert to self.elementType
+        """
         self.value[key] = self.elementType(value)
-
-class TAG_Array(TAG_MutableSequence):
-    """Abstract Base Class for Array tag types"""
-    
-    @classmethod
-    def from_bytes(cls, iterable):
-        return cls( super().decode(iterable, cls.elementType) )
 
 make_wrappers( TAG_MutableSequence,
     coercedMethods = [
@@ -299,6 +249,13 @@ make_wrappers( TAG_MutableSequence,
         '__radd__'
     ]
 )
+
+class TAG_Array(TAG_MutableSequence):
+    """Abstract Base Class for Array tag types"""
+    
+    @classmethod
+    def from_bytes(cls, iterable):
+        return cls( super().decode(iterable, cls.elementType) )
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
@@ -319,6 +276,9 @@ class TAG_End(TAG):
     
     def to_bytes(self):
         return b'\x00'
+    
+    def __repr__(self):
+        return ''
 
 class TAG_Byte(TAG_Integer):
     """UInt8 tag (0 to 255)"""
@@ -346,7 +306,7 @@ class TAG_Long(TAG_Integer):
  
 class TAG_Float(TAG_Decimal):
     """Single precision float tag (32 bits)"""
-    IDD = 5
+    ID = 5
     fmt = '>f'
     snbt = 'f'
 
@@ -417,7 +377,7 @@ class TAG_String(TAG_Value, TAG_Sequence):
         # Escape double quotes
         for character in self.value:
             if character == '"':
-                snbt += '\"'
+                snbt += '\\"'
             else:
                 snbt += character
 
@@ -502,7 +462,7 @@ class TAG_List(TAG_MutableSequence):
         return cls( super().decode(iterator, elementType) )
     
     def to_bytes(self):
-        return TAG_Byte(self[0].ID).to_bytes() + super().to_bytes()
+        return TAG_Byte(self.elementID).to_bytes() + super().to_bytes()
     
 class TAG_Compound(TAG, MutableMapping):
     """A Tag dictionary, containing other names tags of any type."""
@@ -512,9 +472,6 @@ class TAG_Compound(TAG, MutableMapping):
     def __init__(self, value=None):
         value = {} if value is None else value
         self.value = value
-
-    def __repr__(self):
-        return f'{{{",".join( [f"{key}:{repr(self[key])}" for key in self] )}}}'
     
     @classmethod
     def from_bytes(cls, iterable):
@@ -522,10 +479,14 @@ class TAG_Compound(TAG, MutableMapping):
         value = {}
         
         while True:
-            itemType = TAG_ID(TAG_Byte.from_bytes(iterator))
-            if itemType == TAG_End:
+            try:
+                itemType = TAG_ID(TAG_Byte.from_bytes(iterator))
+            except StopIteration:
                 break
             
+            if itemType == TAG_End:
+                break
+
             itemName = TAG_String.from_bytes(iterator).value
             itemValue = itemType.from_bytes(iterator)
             value[itemName] = itemValue
@@ -539,11 +500,29 @@ class TAG_Compound(TAG, MutableMapping):
             encoded += TAG_Byte( self[element].ID ).to_bytes()
             encoded += TAG_String(element).to_bytes()
             encoded += self[element].to_bytes()
-        encoded += TAG_End().to_bytes()
+            if isinstance(self[element], TAG_Compound):
+                encoded += TAG_End().to_bytes()
         return encoded
+
+    def __repr__(self):
+        return f'{{{",".join( [f"{key}:{repr(self[key])}" for key in self] )}}}'
+    
+    def __setitem__(self, key, value):
+        """Replace self[key] with value.
+        
+        Value must type-compatible with self[key]
+        """
+        try:
+            if isinstance(self[key], TAG_List) and len(self[key]) > 0:
+                value = [self[key].elementType(i) for i in value]
+            value = type(self[key])(value)
+        except KeyError:
+            pass
+    
+        self.value[key] = value
     
 make_wrappers( TAG_Compound,
-    nonCoercedMethods = ['__delitem__', '__getitem__', '__iter__', '__len__', '__setitem__']
+    nonCoercedMethods = ['__delitem__', '__getitem__', '__iter__', '__len__']
 )
 
 class TAG_Int_Array(TAG_Array):
@@ -563,15 +542,17 @@ class TAG_Long_Array(TAG_Array):
     ID = 12
     elementType = TAG_Long
     snbt = 'L;'
+   
+#---------------------------------------- Additional methods ---------------------------------------
 
 def TAG_ID(value):
     """Return the right TAG subclass based on its ID"""
     def all_subclasses(cls):
-        return [
+        return set([
             i for i in cls.__subclasses__() + 
             [ 
                 s for c in cls.__subclasses__() for s in all_subclasses(c)
             ] 
             if i.ID is not NotImplemented
-        ]
+        ])
     return sorted(all_subclasses(TAG), key = lambda i : i.ID)[value]
