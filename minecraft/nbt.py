@@ -495,13 +495,16 @@ class TAG_Compound(TAG, MutableMapping):
 
     def to_bytes(self):
         encoded = bytearray()
+        
         for element in self:
-            # Recursively encode ID, Name, Payload
+        
             encoded += TAG_Byte( self[element].ID ).to_bytes()
             encoded += TAG_String(element).to_bytes()
             encoded += self[element].to_bytes()
+            
             if isinstance(self[element], TAG_Compound):
                 encoded += TAG_End().to_bytes()
+            
         return encoded
 
     def __repr__(self):
