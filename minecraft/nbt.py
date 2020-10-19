@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from collections.abc import MutableMapping, MutableSequence, Sequence
 from .compression import compress, decompress
-from util import make_wrappers, read_bytes
 import functools
 import operator
 import struct
+import util
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -68,7 +68,7 @@ class TAG_Value(TAG):
     def to_bytes(self):
         return self._value
     
-make_wrappers(TAG_Value, coercedMethods = ['__add__', '__mod__', '__rmod__', '__mul__', '__rmul__'])
+util.make_wrappers(TAG_Value, coercedMethods = ['__add__', '__mod__', '__rmod__', '__mul__', '__rmul__'])
 
 class TAG_Number(TAG_Value):
     """Abstract Base Class for numerical tag types
@@ -84,7 +84,7 @@ class TAG_Number(TAG_Value):
     
     @classmethod
     def from_bytes(cls, iterable):
-        byteValue = read_bytes(iterable, n = len(cls()))
+        byteValue = util.read_bytes(iterable, n = len(cls()))
         return cls( struct.unpack(cls.fmt, byteValue)[0] )
 
     @property
@@ -102,7 +102,7 @@ class TAG_Number(TAG_Value):
     def __repr__(self):
         return f'{self.value}{self.snbt}'
     
-make_wrappers( TAG_Number, 
+util.make_wrappers( TAG_Number, 
     coercedMethods = [
         'conjugate',
         'imag',
@@ -138,8 +138,17 @@ make_wrappers( TAG_Number,
 class TAG_Integer(TAG_Number):
     """Abstract Base Class for integer numerical tag types"""
     valueType = int
+    
+    @property
+    def unsigned(self):
+        """The unsigned equivalent of this tag's value"""
+        return struct.unpack(self.fmt.upper(), self._value)[0]
+    
+    @unsigned.setter
+    def unsigned(self):
+        self._value = struct.pack(self.fmt.upper(), self.valueType(newValue))
 
-make_wrappers( TAG_Integer,
+util.make_wrappers( TAG_Integer,
     coercedMethods = [
         'denominator',
         'numerator',
@@ -169,13 +178,13 @@ class TAG_Decimal(TAG_Number):
     def fromhex(cls, string):
         return cls( float.fromhex(string) )
 
-make_wrappers(TAG_Decimal, nonCoercedMethods=['hex','is_integer'])
+util.make_wrappers(TAG_Decimal, nonCoercedMethods=['hex','is_integer'])
 
 class TAG_Sequence(TAG, Sequence):
     """Abstract Base Class for sequence tag types"""
     pass
 
-make_wrappers(TAG_Sequence, nonCoercedMethods = ['__getitem__', '__iter__', '__len__'])
+util.make_wrappers(TAG_Sequence, nonCoercedMethods = ['__getitem__', '__iter__', '__len__'])
 
 class TAG_MutableSequence(TAG_Sequence, MutableSequence):
     """Abstract Base Class for Mutable Sequence tag types"""
@@ -239,7 +248,7 @@ class TAG_MutableSequence(TAG_Sequence, MutableSequence):
         """
         self.value[key] = self.elementType(value)
 
-make_wrappers( TAG_MutableSequence,
+util.make_wrappers( TAG_MutableSequence,
     coercedMethods = [
         'copy',
         '__mul__', 
@@ -337,7 +346,7 @@ class TAG_String(TAG_Value, TAG_Sequence):
     def from_bytes(cls, iterable):
         iterator = iter(iterable)
         byteLength = TAG_Short.from_bytes(iterator)
-        byteValue = read_bytes(iterator, n = byteLength)
+        byteValue = util.read_bytes(iterator, n = byteLength)
         return cls( byteValue.decode(encoding='utf-8') )
     
     def isidentifier(self):
@@ -387,7 +396,7 @@ class TAG_String(TAG_Value, TAG_Sequence):
     def __str__(self):
         return self.value
 
-make_wrappers( TAG_String,
+util.make_wrappers( TAG_String,
     coercedMethods = [
         'capitalize',
         'casefold',
@@ -524,7 +533,7 @@ class TAG_Compound(TAG, MutableMapping):
     
         self.value[key] = value
     
-make_wrappers( TAG_Compound,
+util.make_wrappers( TAG_Compound,
     nonCoercedMethods = ['__delitem__', '__getitem__', '__iter__', '__len__']
 )
 

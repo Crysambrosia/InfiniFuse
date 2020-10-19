@@ -1,8 +1,8 @@
 from collections.abc import MutableMapping
 from .compression import compress, decompress
-from util import make_wrappers
 import minecraft.nbt as nbt
 import os
+import util
 
 class DatFile(MutableMapping):
     """Interface for .dat files"""
@@ -80,7 +80,7 @@ class DatFile(MutableMapping):
         except ValueError:
             return 'DatFile (no file path)'
 
-make_wrappers( DatFile, 
+util.make_wrappers( DatFile, 
     nonCoercedMethods = [
         'to_bytes',
         '__delitem__', 
