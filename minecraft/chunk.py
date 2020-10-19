@@ -1,10 +1,10 @@
 from collections.abc import MutableMapping
 from .compression import compress, decompress
 from minecraft.nbt import *
-from util import make_wrappers, read_bytes
 import mmap
 import os
 import time
+import util
 
 class Chunk(MutableMapping):
     """Chunk data model and interface
@@ -66,6 +66,46 @@ class Chunk(MutableMapping):
         folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
         
         return cls.open(chunkX, chunkZ, folder)
+
+    def get_block(self, x : int = 0, y : int = 0, z : int = 0):
+        """Get a specific block using chunk-relative coordinates"""
+        
+        if (not 0<=x<=15) or (not 0<=y<=255) or (not 0<=z<=15):
+            raise IndexError(f'Invalid block position inside chunk : {x} {y} {z}')
+
+        sectionID, y = divmod(y, 16)
+        
+        # Find the section where the block is located
+        for section in self['']['Level']['Sections']:
+            if section['Y'] == sectionID:
+                break
+        else:
+            # Empty sections may be missing
+            return TAG_Compound({'Name':'minecraft:air'})
+        
+        # Find where the block is within the section
+        try:
+            bitLen = max(4, len(section['Palette']).bit_length())
+        except KeyError:
+            # Missing Palette means empty section
+            return TAG_Compound({'Name':'minecraft:air'})
+            
+        IDsPerEntry = 64 // bitLen
+        blockPos = y*16*16 + z*16 + x
+        i, start = divmod(blockPos, IDsPerEntry)
+        
+        # Read the bits and convert them to a palette index
+        blockStateID = util.get_bits( 
+            num = section['BlockStates'][i].unsigned, 
+            start = start, 
+            end = start + bitLen
+        )
+        
+        # Return that blockstate in the palette
+        try:
+            return section['Palette'][blockStateID]
+        except IndexError:
+            print(section['Y'], x, y, z)
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
@@ -162,7 +202,7 @@ class Chunk(MutableMapping):
                 MCA[offset+4] = compression
                 MCA[offset+5 : offset + length + 4] = chunkData
 
-make_wrappers( Chunk, 
+util.make_wrappers( Chunk, 
     nonCoercedMethods = [
         'to_bytes', 
         '__delitem__', 
