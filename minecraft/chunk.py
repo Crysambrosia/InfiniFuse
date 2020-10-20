@@ -67,46 +67,39 @@ class Chunk(MutableMapping):
         
         return cls.open(chunkX, chunkZ, folder)
 
-    def get_block(self, x : int = 0, y : int = 0, z : int = 0):
+    def get_block(self, x : int, y : int , z : int):
         """Get a specific block using chunk-relative coordinates"""
         
         if (not 0<=x<=15) or (not 0<=y<=255) or (not 0<=z<=15):
             raise IndexError(f'Invalid block position inside chunk : {x} {y} {z}')
 
-        sectionID, y = divmod(y, 16)
-        
         # Find the section where the block is located
+        sectionID, y = divmod(y, 16)
         for section in self['']['Level']['Sections']:
             if section['Y'] == sectionID:
                 break
         else:
-            # Empty sections may be missing
             return TAG_Compound({'Name':'minecraft:air'})
         
         # Find where the block is within the section
         try:
             bitLen = max(4, len(section['Palette']).bit_length())
         except KeyError:
-            # Missing Palette means empty section
             return TAG_Compound({'Name':'minecraft:air'})
         
-        IDsPerEntry = 64 // bitLen
-        blockPos = y*16*16 + z*16 + x
-        index, subIndex = divmod(blockPos, IDsPerEntry)
-        end = 64 - subIndex*bitLen
+        # Read the bits and return them
+        blocksPerEntry = 64 // bitLen
+        block = y*16*16 + z*16 + x
+        index, subIndex = divmod(block, blocksPerEntry)
+        lastBit = 64 - subIndex*bitLen 
         
-        # Read the bits
         blockStateID = util.get_bits(
             num = section['BlockStates'][index].unsigned, 
-            start = end - bitLen,
-            end = end
+            start = lastBit - bitLen,
+            end = lastBit
         )
-        bitstr = bin(section['BlockStates'][index].unsigned).lstrip('0b').rjust(64, '0')
-        # Return that blockstate in the palette
-        try:
-            return section['Palette'][blockStateID]
-        except IndexError:
-            print(section['Y'], x, y, z, len(section['Palette']), blockStateID, bitstr)
+        
+        return section['Palette'][blockStateID]
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
@@ -137,6 +130,10 @@ class Chunk(MutableMapping):
             folder = folder
         )
 
+    def set_block(self, x : int, y : int, z : int, block : TAG_Compound):
+        """Set the block at x y z to be block"""
+        pass # Implement a list of possible blockstates first
+    
     def write(self):
         """Save chunk changes to file.
         
