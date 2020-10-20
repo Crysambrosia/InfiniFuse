@@ -89,23 +89,24 @@ class Chunk(MutableMapping):
         except KeyError:
             # Missing Palette means empty section
             return TAG_Compound({'Name':'minecraft:air'})
-            
+        
         IDsPerEntry = 64 // bitLen
         blockPos = y*16*16 + z*16 + x
-        i, start = divmod(blockPos, IDsPerEntry)
+        index, subIndex = divmod(blockPos, IDsPerEntry)
+        end = 64 - subIndex*bitLen
         
-        # Read the bits and convert them to a palette index
-        blockStateID = util.get_bits( 
-            num = section['BlockStates'][i].unsigned, 
-            start = start, 
-            end = start + bitLen
+        # Read the bits
+        blockStateID = util.get_bits(
+            num = section['BlockStates'][index].unsigned, 
+            start = end - bitLen,
+            end = end
         )
-        
+        bitstr = bin(section['BlockStates'][index].unsigned).lstrip('0b').rjust(64, '0')
         # Return that blockstate in the palette
         try:
             return section['Palette'][blockStateID]
         except IndexError:
-            print(section['Y'], x, y, z)
+            print(section['Y'], x, y, z, len(section['Palette']), blockStateID, bitstr)
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
