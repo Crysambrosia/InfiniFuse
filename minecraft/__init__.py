@@ -1,4 +1,5 @@
+from .blockstate import BlockState
 from .chunk import Chunk
-from .nbt import *
-from .datfile import DatFile
 from .compression import compress, decompress
+from .datfile import DatFile
+from .nbt import *
