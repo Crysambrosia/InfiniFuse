@@ -357,6 +357,15 @@ class TAG_String(TAG_Value, TAG_Sequence):
         return self.__class__( self.value.join(iterable) )
 
     def partition(self, sep):
+        """Partition the TAG_String into three parts using the given separator.
+    
+        This will search for the separator in the TAG_String.  If the separator is found,
+        returns a 3-tuple containing the part before the separator, the separator
+        itself, and the part after it.
+            
+        If the separator is not found, returns a 3-tuple containing the original TAG_String
+        and two empty TAG_Strings.
+        """
         return tuple( [self.__class__(i) for i in self.value.partition(sep)] )
 
     def rpartition(self, sep):
