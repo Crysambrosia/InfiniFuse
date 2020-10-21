@@ -1,3 +1,5 @@
 {
-    "facing":["north", "east", "south", "west"]
+    "parents":["abstract:facing_4"],
+    "properties":{
+    }
 }

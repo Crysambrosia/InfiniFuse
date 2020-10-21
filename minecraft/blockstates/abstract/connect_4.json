@@ -1,0 +1,9 @@
+{
+    "parents" : [],
+    "properties" : {
+        "east" : ["false", "true"],
+        "north" : ["false", "true"],
+        "south" : ["false", "true"],
+        "west" : ["false", "true"]
+    }
+}

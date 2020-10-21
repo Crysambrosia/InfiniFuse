@@ -1,0 +1,8 @@
+{
+    "parents" : [],
+    "properties" : {
+        "age" : ["0", "1"]
+        "leaves" : ["none", "large", "small"],
+        "stage" : ["0", "1"]
+    }
+}

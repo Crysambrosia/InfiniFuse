@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:axis_3", "abstract:waterlogged"],
+    "properties" : {
+    
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "parents" : [],
+    "properties" : {
+        "drag" : ["true", "false"]
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "parents":[],
+    "properties":{
+        "facing":["north", "east", "south", "west"]
+    }
+}

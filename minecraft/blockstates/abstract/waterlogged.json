@@ -1,0 +1,6 @@
+{
+    "parents" : [],
+    "properties" : {
+        "waterlogged" : ["false", "true"]
+    }
+}

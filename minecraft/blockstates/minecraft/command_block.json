@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:facing_4"],
+    "properties" : {
+        "conditional" : ["false", "true"]
+    }
+}

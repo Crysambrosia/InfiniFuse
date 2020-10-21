@@ -1,0 +1,6 @@
+{
+    "parents" : [],
+    "properties" : {
+        "powered" : ["false", "true"]
+    }
+}

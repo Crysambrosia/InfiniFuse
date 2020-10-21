@@ -1,0 +1,6 @@
+{
+    "parents" : ["minecraft:command_block"],
+    "properties" : {
+    
+    }
+}
