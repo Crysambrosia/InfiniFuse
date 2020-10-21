@@ -489,6 +489,9 @@ class TAG_Compound(TAG, MutableMapping):
 
     def __init__(self, value=None):
         value = {} if value is None else value
+        for i in value:
+            if not isinstance(value[i], TAG):
+                raise ValueError(f'TAG_Compounds can only contain other TAGs')
         self.value = value
     
     @classmethod
