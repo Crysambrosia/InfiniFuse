@@ -8,39 +8,39 @@ class BlockState(TAG_Compound):
     This does NOT contain coordinates.
     Chunks, and Worlds by extension, are responsible for coordinates.
     """
-    def __init__(self, Name, Properties = None):
-    
-        Properties = {} if Properties is None else Properties
-        Properties = TAG_Compound({key:TAG_String(value) for (key, value) in Properties.items()})
-    
-        self.value = {
-            'Name' : TAG_String(Name), 
-            'Properties' : TAG_Compound({key : TAG_String(value) for (key, value) in Properties.items()})
-        }
-    
-        if not os.path.exists(self.file):
-            raise FileNotFoundError(f'Unknown block {Name}')
-    
-        with open(self.file) as f:
-            validProperties = json.load(f)
-    
-        for i in self['Properties']:
-            if i not in validProperties:
-                raise AttributeError(f'Invalid property {i} for block {self["Name"]}')
-    
-        for i in validProperties:
-            if i in self['Properties']:
-                if self['Properties'][i] not in validProperties[i]:
-                    raise ValueError(f'Invalid value {self["Properties"][i]} for property {i}')
-            else:
-                self['Properties'][i] = TAG_String(validProperties[i][0])
+    def __init__(self, name, properties = None):
 
-    @property
-    def file(self):
-        """The file where the valid properties for this block are stored"""
-        namespace, _, block = self['Name'].partition(':')
-        return os.path.join(os.path.dirname(__file__), 'blockstates', str(namespace), f'{block}.json')
+        self.value = { 'Name' : TAG_String(name), 'Properties' : TAG_Compound() }
+        
+        # Set all properties given to the constructor
+        properties = {} if properties is None else properties
+        for key, value in properties.items():
+            self.set_property(key, value)
+
+        # Set missing properties to their default values
+        for key, value in self.validProperties.items():
+            if key not in self['Properties']:
+                self.set_property(key, value[0])
     
-    def __setitem__(self, key, value):
-        if key not in self:
-            raise AttributeError(f'Invalid property {key} for block {self["Name"]}')
+    def set_property(self, key, value):
+        """Edit a property with type and value checking"""
+        
+        if key not in self.validProperties:
+            raise KeyError(f'Invalid property {key} for block {self["Name"]}')
+        if value not in self.validProperties[key]:
+            raise ValueError(f'Invalid value {value} for property {key} of block {self["Name"]}')
+        
+        self['Properties'][key] = TAG_String(value)
+    
+    @property
+    def validProperties(self):
+        """A dict containing valid properties and their valid values for this block type"""
+        
+        namespace, _, block = self['Name'].partition(':')
+        filePath = os.path.join(os.path.dirname(__file__), 'blockstates', str(namespace), f'{block}.json')
+        
+        if not os.path.exists(filePath):
+            raise FileNotFoundError(f'Unknown block {Name}')
+        
+        with open(filePath) as f:
+            return json.load(f)
