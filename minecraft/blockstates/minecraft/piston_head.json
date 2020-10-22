@@ -1,0 +1,7 @@
+{
+    "parents" : ["abstract:facing_6"],
+    "properties" : {
+        "type" : ["normal", "sticky"],
+        "short" : ["false", "true"]
+    }
+}

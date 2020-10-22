@@ -1,0 +1,17 @@
+{
+    "parents" : [],
+    "properties" : {
+        "shape" : [
+            "north_south",
+            "east_west",
+            "north_east",
+            "north_west",
+            "south_east",
+            "south_west",
+            "ascending_east",
+            "ascending_north",
+            "ascending_south",
+            "ascending_west"
+        ]
+    }
+}

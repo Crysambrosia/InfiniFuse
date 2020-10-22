@@ -1,0 +1,13 @@
+{
+    "parents" : ["abstract:powered"],
+    "properties" : {
+        "shape" : [
+            "north_south",
+            "east_west",
+            "ascending_east",
+            "ascending_north",
+            "ascending_south",
+            "ascending_west"
+        ]
+    }
+}

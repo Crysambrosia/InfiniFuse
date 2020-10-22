@@ -1,5 +1,5 @@
 {
-    "parents" : ["abstract:age_3"],
+    "parents" : ["abstract:powered"],
     "properties" : {
         
     }

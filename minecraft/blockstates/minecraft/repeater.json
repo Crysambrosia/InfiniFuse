@@ -1,0 +1,7 @@
+{
+    "parents" : ["abstract:facing_4", "abstract:powered"],
+    "properties" : {
+        "delay" : ["1", "2", "3", "4"],
+        "locked" : ["false", "true"]
+    }
+}
