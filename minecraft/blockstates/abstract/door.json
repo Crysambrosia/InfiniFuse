@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:facing_4", "abstract:half", "abstract:powered", "abstract:open"],
+    "properties" : {
+        "hinge" : ["left", "right"]
+    }
+}

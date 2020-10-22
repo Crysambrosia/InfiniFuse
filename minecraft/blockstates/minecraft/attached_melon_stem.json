@@ -1,5 +1,5 @@
 {
-    "parents" : [],
+    "parents" : ["abstract:facing_4"],
     "properties" : {
         
     }

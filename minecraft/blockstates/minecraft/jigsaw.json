@@ -1,0 +1,19 @@
+{
+    "parents" : [],
+    "properties" : {
+        "orientation" : [
+            "north_up", 
+            "down_east", 
+            "down_north", 
+            "down_south", 
+            "down_west", 
+            "east_up",
+            "south_up",
+            "up_east",
+            "up_north",
+            "up_south",
+            "up_west",
+            "west_up"
+        ]
+    }
+}

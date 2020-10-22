@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:facing_6"],
+    "properties" : {
+        "triggered" : ["false", "true"]
+    }
+}

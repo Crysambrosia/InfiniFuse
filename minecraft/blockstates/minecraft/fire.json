@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:age_15", "abstract:connect_4"],
+    "properties" : {
+        "up" : ["false", "true"]
+    }
+}

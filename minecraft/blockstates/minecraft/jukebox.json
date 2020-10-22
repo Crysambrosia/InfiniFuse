@@ -1,6 +1,6 @@
 {
     "parents" : [],
     "properties" : {
-        
+        "has_record" : ["false", "true"]
     }
 }

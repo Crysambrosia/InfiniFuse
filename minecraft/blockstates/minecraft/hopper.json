@@ -1,0 +1,7 @@
+{
+    "parents" : [],
+    "properties" : {
+        "enabled" : ["true", "false"],
+        "facing" : ["down", "east", "north", "south", "west"]
+    }
+}

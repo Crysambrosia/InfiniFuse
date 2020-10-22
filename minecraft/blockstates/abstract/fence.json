@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:connect_4", "abstract:waterlogged"],
+    "properties" : {
+        
+    }
+}

@@ -1,5 +1,5 @@
 {
-    "parents" : ["abstract:rotate"],
+    "parents" : ["abstract:rotation"],
     "properties" : {
     
     }

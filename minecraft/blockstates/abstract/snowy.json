@@ -1,6 +1,6 @@
 {
     "parents" : [],
     "properties" : {
-        
+        "snowy" : ["false", "true"]
     }
 }
