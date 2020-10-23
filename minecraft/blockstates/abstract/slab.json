@@ -1,0 +1,6 @@
+{
+    "parents" : ["abstract:waterlogged"],
+    "properties" : {
+        "type" : ["bottom", "top", "double"]
+    }
+}
