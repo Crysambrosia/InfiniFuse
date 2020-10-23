@@ -30,8 +30,31 @@ class BlockState(TAG_Compound):
         
         if key not in self.validProperties:
             raise KeyError(f'Invalid property {key} for block {self["Name"]}')
-        if value not in self.validProperties[key]:
-            raise ValueError(f'Invalid value {value} for property {key} of block {self["Name"]}')
+        
+        isValid = False
+        if self.validProperties[key]['type'] == 'bool':
+            if value not in ['false', 'true']:
+                raise ValueError(
+                    f'''Invalid value {value} for property {key} of block {self["Name"]}
+                    (expected \'true\' or \'false\')
+                    '''
+                )
+        elif self.validProperties[key]['type'] == 'num':
+            minimum = int(self.validProperties[key]['min'])
+            maximum = int(self.validProperties[key]['max'])
+            if value not in range(minimum, maximum):
+                raise ValueError(
+                    f'''Invalid value {value} for property {key} of block {self["Name"]} 
+                    (expected number between {minimum} and {maximum})
+                    '''
+                )
+        elif self.validProperties[key]['type'] == 'str':
+            if value not in self.validProperties[key]['values']:
+                raise ValueError(
+                    f'''Invalid value {value} for property {key} of block {self["Name"]} 
+                    (expected one of {self.validProperties[key]['values']})
+                    '''
+                )
         
         self['Properties'][key] = value
 
