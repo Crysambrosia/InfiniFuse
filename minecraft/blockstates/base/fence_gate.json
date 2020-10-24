@@ -1,0 +1,29 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "in_wall" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "open" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "half" : {
+            "type" : "str",
+            "default" : "lower",
+            "values" : [
+                "lower",
+                "upper"
+            ]
+        }
+    }
+}

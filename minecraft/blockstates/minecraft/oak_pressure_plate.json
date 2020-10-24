@@ -1,0 +1,8 @@
+{
+    "parents" : [
+        "base:pressure_plate"
+    ],
+    "properties" : {
+        
+    }
+}

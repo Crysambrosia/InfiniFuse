@@ -1,0 +1,20 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "type" : {
+            "type" : "str",
+            "default" : "bottom",
+            "values" : [
+                "bottom",
+                "top",
+                "double"
+            ]
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "axis" : {
+            "type" : "str",
+            "default" : "y",
+            "value" : [
+                "x",
+                "y",
+                "z"
+            ]
+        }
+    }
+}

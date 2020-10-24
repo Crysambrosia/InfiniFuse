@@ -1,0 +1,17 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "rotation" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "15"
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

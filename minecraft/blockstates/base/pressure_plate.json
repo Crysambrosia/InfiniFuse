@@ -1,0 +1,11 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

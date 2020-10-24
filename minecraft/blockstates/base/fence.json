@@ -1,0 +1,27 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "east" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "north" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "south" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "west" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+    "parents" : [
+        "base:log"
+    ],
+    "properties" : {
+        
+    }
+}
