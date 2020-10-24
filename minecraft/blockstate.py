@@ -22,7 +22,7 @@ class BlockState(TAG_Compound):
         # Set missing properties to their default values
         for key, value in self.validProperties.items():
             if key not in self['Properties']:
-                self.set_property(key, value[0])
+                self.set_property(key, value['default'])
 
     def set_property(self, key, value):
         """Edit a property with type and value checking"""
@@ -30,29 +30,28 @@ class BlockState(TAG_Compound):
         
         if key not in self.validProperties:
             raise KeyError(f'Invalid property {key} for block {self["Name"]}')
+        else:
+            valid = self.validProperties[key]
         
-        isValid = False
-        if self.validProperties[key]['type'] == 'bool':
+        if valid['type'] == 'bool':
             if value not in ['false', 'true']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self["Name"]}
                     (expected \'true\' or \'false\')
                     '''
                 )
-        elif self.validProperties[key]['type'] == 'num':
-            minimum = int(self.validProperties[key]['min'])
-            maximum = int(self.validProperties[key]['max'])
-            if value not in range(minimum, maximum):
+        elif valid['type'] == 'int':
+            if value not in range(valid['min'], valid['max']):
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self["Name"]} 
-                    (expected number between {minimum} and {maximum})
+                    (expected number between {valid['min']} and {valid['max']})
                     '''
                 )
-        elif self.validProperties[key]['type'] == 'str':
-            if value not in self.validProperties[key]['values']:
+        elif valid['type'] == 'str':
+            if value not in valid['values']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self["Name"]} 
-                    (expected one of {self.validProperties[key]['values']})
+                    (expected one of {valid['values']})
                     '''
                 )
         
@@ -70,15 +69,12 @@ class BlockState(TAG_Compound):
             
             if not os.path.exists(filePath):
                 raise FileNotFoundError(f'Unknown block {name}')
-            
+
             with open(filePath) as f:
                 data = json.load(f)
-        
-            try:
-                for parent in data['parents']:
-                    data['properties'].update(load_from_parents(parent))
-            except KeyError:
-                pass
+
+            for parent in data['parents']:
+                data['properties'].update(load_from_parents(parent))
             
             return data['properties']
         
