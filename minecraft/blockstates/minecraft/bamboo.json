@@ -1,0 +1,28 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "age" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "1"
+        },
+        "leaves" : {
+            "type" : "str",
+            "default" : "none",
+            "values" : [
+                "large",
+                "none",
+                "small"
+            ]
+        },
+        "stage" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "1"
+        }
+    }
+}
