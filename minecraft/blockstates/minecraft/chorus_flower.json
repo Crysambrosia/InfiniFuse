@@ -1,0 +1,13 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "age" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "5"
+        }
+    }
+}

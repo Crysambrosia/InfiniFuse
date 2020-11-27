@@ -1,0 +1,8 @@
+{
+    "parents" : [
+        "base:command_block"
+    ],
+    "properties" : {
+        
+    }
+}

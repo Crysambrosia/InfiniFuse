@@ -1,0 +1,30 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "type" : {
+            "type" : "str",
+            "default" : "single",
+            "values" : [
+                "left",
+                "right",
+                "single"
+            ]
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

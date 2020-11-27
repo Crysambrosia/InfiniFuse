@@ -1,0 +1,20 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "axis" : {
+            "type" : "str",
+            "default" : "y",
+            "values" : [
+                "x",
+                "y",
+                "z"
+            ]
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

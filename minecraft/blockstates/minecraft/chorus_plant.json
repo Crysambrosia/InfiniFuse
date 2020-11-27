@@ -5,27 +5,27 @@
     "properties" : {
         "down" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         },
         "east" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         },
         "north" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         },
         "south" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         },
         "up" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         },
         "west" : {
             "type" : "bool",
-            "default" : "true"
+            "default" : "false"
         }
     }
 }
