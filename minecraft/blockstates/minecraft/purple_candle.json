@@ -1,0 +1,8 @@
+{
+    "parents" : [
+        "base:candle"
+    ],
+    "properties" : {
+        
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "lit" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "signal_fire" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

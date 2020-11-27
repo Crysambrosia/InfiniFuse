@@ -1,0 +1,31 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "attachment" : {
+            "type" : "str",
+            "default" : "floor",
+            "values" : [
+                "ceiling",
+                "double_wall",
+                "floor",
+                "single_wall"
+            ]
+        },
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

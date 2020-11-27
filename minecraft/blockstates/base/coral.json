@@ -1,0 +1,11 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "true"
+        }
+    }
+}

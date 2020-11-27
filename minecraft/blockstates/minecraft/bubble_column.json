@@ -1,0 +1,11 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "drag" : {
+            "type" : "bool",
+            "default" : "true"
+        }
+    }
+}

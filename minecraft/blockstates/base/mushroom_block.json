@@ -1,0 +1,31 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "east" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "down" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "north" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "south" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "up" : {
+            "type" : "bool",
+            "default" : "true"
+        },
+        "west" : {
+            "type" : "bool",
+            "default" : "true"
+        }
+    }
+}

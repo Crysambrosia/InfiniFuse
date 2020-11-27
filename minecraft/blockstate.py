@@ -40,6 +40,7 @@ class BlockState(TAG_Compound):
                     (expected \'true\' or \'false\')
                     '''
                 )
+
         elif valid['type'] == 'int':
             if value not in range(valid['min'], valid['max']):
                 raise ValueError(
@@ -47,6 +48,7 @@ class BlockState(TAG_Compound):
                     (expected number between {valid['min']} and {valid['max']})
                     '''
                 )
+
         elif valid['type'] == 'str':
             if value not in valid['values']:
                 raise ValueError(

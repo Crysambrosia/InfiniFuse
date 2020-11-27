@@ -1,0 +1,8 @@
+{
+    "parents" : [
+        "base:glass_pane"
+    ],
+    "properties" : {
+        
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "honey_level" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "5"
+        }
+    }
+}

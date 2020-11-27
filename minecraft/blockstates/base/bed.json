@@ -1,0 +1,29 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "occupied" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "part" : {
+            "type" : "str",
+            "default" : "foot",
+            "values" : [
+                "foot",
+                "head"
+            ]
+        }
+    }
+}
