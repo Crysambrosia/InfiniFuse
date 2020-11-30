@@ -1,0 +1,11 @@
+{
+    "parents" : [
+    
+    ],
+    "properties" : {
+        "falling" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

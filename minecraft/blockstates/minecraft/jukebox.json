@@ -1,0 +1,11 @@
+ {
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "has_record" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

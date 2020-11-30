@@ -1,0 +1,26 @@
+ {
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "face" : {
+            "type" : "str",
+            "default" : "wall",
+            "values" : [
+                "ceiling",
+                "floor",
+                "wall"
+            ]
+        },
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        }
+    }
+}
