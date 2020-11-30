@@ -1,0 +1,17 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "inverted" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "power" : {
+            "type" : "int",
+            "default" : "0",
+            "min" : "0",
+            "max" : "15"
+        }
+    }
+}

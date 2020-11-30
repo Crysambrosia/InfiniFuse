@@ -1,0 +1,27 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "shape" : {
+            "type" : "str",
+            "default" : "north_south",
+            "values" : [
+                "ascending_east",
+                "ascending_north",
+                "ascending_south",
+                "ascending_west",
+                "east_west",
+                "north_east",
+                "north_south",
+                "north_west",
+                "south_east",
+                "south_west"
+            ]
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}
