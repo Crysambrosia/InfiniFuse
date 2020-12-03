@@ -1,0 +1,31 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "delay" : {
+            "type" : "int",
+            "default" : "1",
+            "min" : "1",
+            "max" : "4"
+        },
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "locked" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

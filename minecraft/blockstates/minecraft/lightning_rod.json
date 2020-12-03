@@ -1,0 +1,23 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "up",
+            "values" : [
+                "down",
+                "east",
+                "north",
+                "south",
+                "up",
+                "west"
+            ]
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

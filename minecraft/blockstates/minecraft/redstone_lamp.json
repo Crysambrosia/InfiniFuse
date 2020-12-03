@@ -1,0 +1,11 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "lit" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

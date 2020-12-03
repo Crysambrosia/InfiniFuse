@@ -1,0 +1,11 @@
+ {
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "snowy" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

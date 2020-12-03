@@ -1,0 +1,29 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "facing" : {
+            "type" : "str",
+            "default" : "north",
+            "values" : [
+                "east",
+                "north",
+                "south",
+                "west"
+            ]
+        },
+        "mode" : {
+            "type" : "str",
+            "default" : "compare",
+            "values" : [
+                "compare",
+                "subtract"
+            ]
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

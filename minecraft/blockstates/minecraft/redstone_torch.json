@@ -1,6 +1,6 @@
 {
     "parents" : [
-        "base:grass"
+        "base:redstone_torch"
     ],
     "properties" : {
         
