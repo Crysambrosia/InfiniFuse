@@ -1,0 +1,35 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "attached" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "disarmed" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "east" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "north" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "powered" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "south" : {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "west" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

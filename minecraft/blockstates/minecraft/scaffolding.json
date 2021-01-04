@@ -1,0 +1,21 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "bottom" :  {
+            "type" : "bool",
+            "default" : "false"
+        },
+        "distance" : {
+            "type" : "int",
+            "default" : "7",
+            "min" : "0",
+            "max" : "7"
+        },
+        "waterlogged" : {
+            "type" : "bool",
+            "default" : "false"
+        }
+    }
+}

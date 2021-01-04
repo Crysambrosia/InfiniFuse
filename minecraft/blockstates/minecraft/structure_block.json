@@ -1,0 +1,17 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "mode" : {
+            "type" : "str",
+            "default" : "data",
+            "values" : [
+                "corner",
+                "data",
+                "load",
+                "save"
+            ]
+        }
+    }
+}

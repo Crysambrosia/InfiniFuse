@@ -1,0 +1,13 @@
+{
+    "parents" : [
+        
+    ],
+    "properties" : {
+        "layers" : {
+            "type" : "int",
+            "default" : "1",
+            "min" : "1",
+            "max" : "8"
+        }
+    }
+}
