@@ -19,9 +19,41 @@ class TAG(ABC):
     def from_bytes(cls, iterable):
         """Create a tag from an iterable of NBT data bytes"""
         pass
+    
+    @classmethod
+    def from_snbt(cls, snbt):
+        """Create a tag from a SNBT formatted string"""
+            
+        if snbt.isdigit():
+            return TAG_Int.from_snbt(snbt)
+            
+        elif snbt.replace('.','').isdigit():
+            return TAG_Double.from_snbt(snbt)
+            
+        elif snbt[-1].isalpha() and snbt[:-1].replace('.','').isdigit():
+
+            typeTable = [i for i in util.all_subclasses(TAG_Number) if i.ID is not NotImplemented]
+
+            for tagType in typeTable:
+                if snbt[-1].lower() == tagType.suffix.lower():
+                    return tagType.from_snbt(snbt)
+            
+        elif snbt[0] == '[' and snbt[-1] == ']':
+            
+            typeTable = [i for i in util.all_subclasses(TAG_MutableSequence) if i.ID is not NotImplemented]
+
+            for tagType in typeTable:
+                if snbt[1:3].lower() == tagType.prefix.lower():
+                    return tagType.from_snbt(snbt)
+            
+        elif snbt[0] == '{' and snbt[-1] == '}':
+            return TAG_Compound.from_snbt(snbt)
+            
+        else:
+            raise ValueError('Invalid SNBT string')
 
     @property
-    def snbt(self):
+    def to_snbt(self):
         return repr(self)
 
     @abstractmethod
@@ -79,13 +111,23 @@ class TAG_Number(TAG_Value):
     fmt = NotImplemented
     """Struct format string for packing and unpacking"""
     
-    snbt = NotImplemented
-    """SNBT value identifier"""
+    suffix = NotImplemented
+    """SNBT value suffix"""
     
     @classmethod
     def from_bytes(cls, iterable):
         byteValue = util.read_bytes(iterable, n = len(cls()))
         return cls( struct.unpack(cls.fmt, byteValue)[0] )
+ 
+    @classmethod
+    def from_snbt(cls, snbt : str):
+        snbt = snbt.lower()
+        suffix = cls.suffix.lower()
+        try:
+            assert snbt.find(suffix) != -1
+            return cls(snbt.removesuffix(suffix))
+        except:
+            raise ValueError(f'Invalid SNBT \'{snbt}\' for {cls}')
 
     @property
     def value(self):
@@ -100,7 +142,7 @@ class TAG_Number(TAG_Value):
         return len(self._value)
 
     def __repr__(self):
-        return f'{self.value}{self.snbt}'
+        return f'{self.value}{self.suffix}'
     
 util.make_wrappers( TAG_Number, 
     coercedMethods = [
@@ -239,7 +281,7 @@ class TAG_MutableSequence(TAG_Sequence, MutableSequence):
         del self.value[key]
     
     def __repr__(self):
-        return f'[{self.snbt}{",".join( [repr(i) for i in self.value] )}]'
+        return f'[{self.prefix}{",".join( [repr(i) for i in self.value] )}]'
 
     def __setitem__(self, key, value):
         """Replace self[key] with value.
@@ -262,9 +304,23 @@ util.make_wrappers( TAG_MutableSequence,
 class TAG_Array(TAG_MutableSequence):
     """Abstract Base Class for Array tag types"""
     
+    prefix = NotImplemented
+    """SNBT list Prefix"""
+    
     @classmethod
     def from_bytes(cls, iterable):
         return cls( super().decode(iterable, cls.elementType) )
+    
+    @classmethod
+    def from_snbt(cls, snbt : str):
+        snbt = snbt.lower()
+        prefix = cls.prefix.lower()
+        try:
+            assert snbt[0] == '[' and snbt[-1] == ']'
+            assert snbt.find(prefix) != -1
+            cls.elementType(i) for i in snbt.strip('[]').split(',') #HERE
+            # Finish the implementation so that lists / arrays can import elements properly
+            # Look into inheritance structure for it
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
@@ -279,9 +335,13 @@ class TAG_End(TAG):
     def __init__(self, value = None):
         pass
     
-    @staticmethod
-    def from_bytes(value):
-        return None
+    @classmethod
+    def from_bytes(cls, value):
+        return cls(value)
+
+    @classmethod
+    def from_snbt(snbt : str):
+        return cls(snbt)
     
     def to_bytes(self):
         return b'\x00'
@@ -293,37 +353,37 @@ class TAG_Byte(TAG_Integer):
     """UInt8 tag (0 to 255)"""
     ID = 1
     fmt = 'B'
-    snbt = 'b'
+    suffix = 'b'
 
 class TAG_Short(TAG_Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    snbt = 's'
+    suffix = 's'
   
 class TAG_Int(TAG_Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
-    snbt = ''
+    suffix = ''
 
 class TAG_Long(TAG_Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    snbt = 'L'
+    suffix = 'L'
  
 class TAG_Float(TAG_Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
-    snbt = 'f'
+    suffix = 'f'
 
 class TAG_Double(TAG_Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    snbt = 'd'
+    suffix = 'd'
 
 class TAG_Byte_Array(TAG_Array):
     """A TAG_Byte array
@@ -332,7 +392,7 @@ class TAG_Byte_Array(TAG_Array):
     """
     ID = 7
     elementType = TAG_Byte
-    snbt = 'B;'
+    prefix = 'B;'
     
 class TAG_String(TAG_Value, TAG_Sequence):
     """Unicode string tag
@@ -455,7 +515,7 @@ class TAG_List(TAG_MutableSequence):
     """
 
     ID = 9
-    snbt = ''
+    prefix = ''
 
     def append(self, value):
         """Append to the list, perform type checking unless it is empty"""
@@ -514,6 +574,16 @@ class TAG_Compound(TAG, MutableMapping):
         
         return cls(value)
 
+    @classmethod
+    def from_snbt(cls, snbt):
+        value = {}
+        
+        for i in snbt.strip('{}').split(','):
+            itemName, _, itemValue = i.partition(':')
+            value[itemName] = TAG_from_snbt(itemValue)
+        
+        return cls(value)
+
     def to_bytes(self):
         encoded = bytearray()
         
@@ -556,7 +626,7 @@ class TAG_Int_Array(TAG_Array):
     """
     ID = 11
     elementType = TAG_Int
-    snbt = 'I;'
+    prefix = 'I;'
     
 class TAG_Long_Array(TAG_Array):
     """A TAG_Long array
@@ -565,18 +635,11 @@ class TAG_Long_Array(TAG_Array):
     """
     ID = 12
     elementType = TAG_Long
-    snbt = 'L;'
+    prefix = 'L;'
    
 #---------------------------------------- Additional methods ---------------------------------------
 
 def TAG_ID(value):
     """Return the right TAG subclass based on its ID"""
-    def all_subclasses(cls):
-        return set([
-            i for i in cls.__subclasses__() + 
-            [ 
-                s for c in cls.__subclasses__() for s in all_subclasses(c)
-            ] 
-            if i.ID is not NotImplemented
-        ])
-    return sorted(all_subclasses(TAG), key = lambda i : i.ID)[value]
+    IDtable = [i for i in util.all_subclasses(TAG) if i.ID is not NotImplemented]
+    return sorted(IDtable, key = lambda i : i.ID)[value]

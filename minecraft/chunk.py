@@ -79,18 +79,20 @@ class Chunk(MutableMapping):
             if section['Y'] == sectionID:
                 break
         else:
-            return TAG_Compound({'Name':'minecraft:air'})
+            return TAG_Compound({'Name':TAG_String('minecraft:air')})
         
         # Find where the block is within the section
         try:
             bitLen = max(4, len(section['Palette']).bit_length())
         except KeyError:
-            return TAG_Compound({'Name':'minecraft:air'})
+            return TAG_Compound({'Name':TAG_String('minecraft:air')})
         
         # Read the bits and return them
         blocksPerEntry = 64 // bitLen
         block = y*16*16 + z*16 + x
         index, subIndex = divmod(block, blocksPerEntry)
+        print(index)
+        print(section['BlockStates'])
         lastBit = 64 - subIndex*bitLen 
         
         blockStateID = util.get_bits(
