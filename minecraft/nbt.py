@@ -20,10 +20,16 @@ class TAG_Abstract(ABC):
     def from_bytes(cls, iterable):
         """Create a tag from an iterable of NBT data bytes"""
         pass
-    
+    '''
     @classmethod
+    @abstractmethod
     def from_snbt(cls, snbt):
         """Create a tag from a SNBT formatted string"""
+        pass
+    '''
+    @classmethod
+    def check_snbt(cls, snbt):
+        """Check if provided SNBT is valid"""
         if not re.compile(cls.regex).fullmatch(snbt):
             raise ValueError(f'Invalid SNBT \'{snbt}\' for {cls}')
 
@@ -302,7 +308,7 @@ class TAG_Array(TAG_MutableSequence):
     def regex(cls):
         prefix = cls.prefix
         elem = cls.elementType.regex
-        return f'(\\[{prefix}({elem},)*(?(2)({elem})|({elem})?)\\])'
+        return f'\\[{prefix}({elem})?(?(1)(,{elem})*)\\]'
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
@@ -311,9 +317,19 @@ class TAG():
     To be used when the correct tag type is indeterminate before runtime
     """
     
+    @classmethod
+    @property
+    def types(cls):
+        """A list of all instantiable TAG types"""
+        return sorted(
+            [i for i in util.all_subclasses(TAG_Abstract) if i.ID is not NotImplemented],
+            key = lambda i : i.ID
+        )
+    
     @staticmethod
     def from_snbt(snbt):
-    
+        return TAG_String('a')
+        '''
         if re.compile(r'[\d]').fullmatch(snbt) is not None:
             return TAG_Int.from_snbt(snbt)
         elif re.compile(r'[\d.]').fullmatch(snbt) is not None:
@@ -340,15 +356,12 @@ class TAG():
             
         else:
             raise ValueError('Invalid SNBT string')
+        '''
     
     @staticmethod
-    def from_ID(value):
-        """Return the right TAG_Abstract subclass based on its ID"""
-        IDtable = sorted(
-            [i for i in util.all_subclasses(TAG_Abstract) if i.ID is not NotImplemented],
-            key = lambda i : i.ID
-        )
-        return IDtable[value]
+    def from_ID(n):
+        """Return the right TAG type based on its ID"""
+        return TAG.types[n]
 
 class TAG_End(TAG_Abstract):
     """You probably don't want to use this.
@@ -379,42 +392,42 @@ class TAG_Byte(TAG_Integer):
     """UInt8 tag (0 to 255)"""
     ID = 1
     fmt = 'B'
-    regex = r'[\d]+[bB]'
+    regex = r"""[\d]+[bB]"""
     suffix = 'b'
 
 class TAG_Short(TAG_Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    regex = r'[\d]+[sS]'
+    regex = r"""[\d]+[sS]"""
     suffix = 's'
   
 class TAG_Int(TAG_Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
-    regex = r'[\d]+'
+    regex = r"""[\d]+"""
     suffix = ''
 
 class TAG_Long(TAG_Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    regex = r'[\d]+[lL]'
+    regex = r"""[\d]+[lL]"""
     suffix = 'L'
  
 class TAG_Float(TAG_Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
-    regex = r'[\d.]+[fF]'
+    regex = r"""[\d.]+[fF]"""
     suffix = 'f'
 
 class TAG_Double(TAG_Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    regex = r'[\d.]+[dD]?'
+    regex = r"""[\d.]+[dD]?"""
     suffix = 'd'
 
 class TAG_Byte_Array(TAG_Array):
@@ -429,12 +442,10 @@ class TAG_Byte_Array(TAG_Array):
 class TAG_String(TAG_Value, TAG_Sequence):
     """Unicode string tag
     
-    Payload : a Short for length, then a length bytes long UTF-8 string
+    Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
     ID = 8
-    regex = r'(?s)([\'"]).*?\1' #HERE
-    #check answers on stack overflow
-    #This regex needs to only match if the inner quotes are properly escaped
+    regex = r"""(['"])((?!\1)[^\\]|\\.)*\1"""
     valueType = str
 
     @classmethod
@@ -578,12 +589,18 @@ class TAG_List(TAG_MutableSequence):
         elementType = TAG.from_ID( TAG_Byte.from_bytes(iterator) )
         return cls( super().decode_bytes(iterator, elementType) )
     
+    @classmethod
+    @property
+    def regex(cls):
+        pass
+    
     def to_bytes(self):
         return TAG_Byte(self.elementID).to_bytes() + super().to_bytes()
     
 class TAG_Compound(TAG_Abstract, MutableMapping):
     """A Tag dictionary, containing other names tags of any type."""
     ID = 10
+    regex = r'{([^,:]*:[^,:]*)?(?(1)(,[^,:]*:[^,:]*)*)}'
     valueType = dict
 
     def __init__(self, value=None):
@@ -615,11 +632,12 @@ class TAG_Compound(TAG_Abstract, MutableMapping):
 
     @classmethod
     def from_snbt(cls, snbt):
+        cls.check_snbt(snbt)
         value = {}
         
         for i in snbt.strip('{}').split(','):
             itemName, _, itemValue = i.partition(':')
-            value[itemName] = TAG_from_snbt(itemValue)
+            value[itemName] = TAG.from_snbt(itemValue)
         
         return cls(value)
 
@@ -637,8 +655,8 @@ class TAG_Compound(TAG_Abstract, MutableMapping):
             
         return encoded
 
-    def __repr__(self):
-        return f'{{{",".join( [f"{key}:{repr(self[key])}" for key in self] )}}}'
+    def to_snbt(self):
+        return f'{{{",".join( [f"{key}:{self[key].to_snbt()}" for key in self] )}}}'
     
     def __setitem__(self, key, value):
         """Replace self[key] with value.
