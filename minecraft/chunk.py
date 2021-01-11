@@ -1,27 +1,27 @@
-from collections.abc import MutableMapping
 from .compression import compress, decompress
-from minecraft.nbt import *
+import collections.abc.MutableMapping
+import minecraft.TAG as TAG
 import mmap
 import os
 import time
 import util
 
-class Chunk(MutableMapping):
+class Chunk(collections.abc.MutableMapping):
     """Chunk data model and interface
     
     Chunks are opened and saved directly, abstracting .mca files
     """
     def __init__(self,
         timestamp : int = None,
-        value : TAG_Compound = None,
+        value : TAG.Compound = None,
         folder : str = None
     ):
 
         self.timestamp = int(time.time()) if timestamp is None else timestamp
         """Timestamp of last edit in epoch seconds"""
 
-        self.value = TAG_Compound() if value is None else value
-        """NBT data as a TAG_Compound"""
+        self.value = TAG.Compound() if value is None else value
+        """NBT data as a TAG.Compound"""
 
         self.folder = folder
         """Folder containing the .mca files for writing"""
@@ -79,13 +79,13 @@ class Chunk(MutableMapping):
             if section['Y'] == sectionID:
                 break
         else:
-            return TAG_Compound({'Name':TAG_String('minecraft:air')})
+            return TAG.Compound({'Name':TAG.String('minecraft:air')})
         
         # Find where the block is within the section
         try:
             bitLen = max(4, len(section['Palette']).bit_length())
         except KeyError:
-            return TAG_Compound({'Name':TAG_String('minecraft:air')})
+            return TAG.Compound({'Name':TAG.String('minecraft:air')})
         
         # Read the bits and return them
         blocksPerEntry = 64 // bitLen
@@ -128,11 +128,11 @@ class Chunk(MutableMapping):
 
         return cls(
             timestamp = timestamp, 
-            value = TAG_Compound.from_bytes( decompress(chunkData, compression)[0] ), 
+            value = TAG.Compound.from_bytes( decompress(chunkData, compression)[0] ), 
             folder = folder
         )
 
-    def set_block(self, x : int, y : int, z : int, block : TAG_Compound):
+    def set_block(self, x : int, y : int, z : int, block : TAG.Compound):
         """Set the block at x y z to be block"""
         pass # Implement a list of possible blockstates first
     

@@ -2,4 +2,4 @@ from .blockstate import BlockState
 from .chunk import Chunk
 from .compression import compress, decompress
 from .datfile import DatFile
-from .nbt import *
+import TAG

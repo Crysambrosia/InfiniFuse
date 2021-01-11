@@ -1,20 +1,20 @@
-from collections.abc import MutableMapping
-from .compression import compress, decompress
-import minecraft.nbt as nbt
+from minecraft.compression import compress, decompress
+import collections.abc.MutableMapping
+import minecraft.TAG as TAG
 import os
 import util
 
-class DatFile(MutableMapping):
+class DatFile(collections.abc.MutableMapping):
     """Interface for .dat files"""
 
     def __init__( self, 
-        value       : nbt.TAG_Compound = None, 
+        value       : TAG.Compound = None, 
         compression : int = 3, 
         filePath    : str = None
     ):
         
-        self.value = nbt.TAG_Compound() if value is None else value
-        """NBT data as a TAG_Compound"""
+        self.value = TAG.Compound() if value is None else value
+        """NBT data as a TAG.Compound"""
         
         self.compression = compression
         """Compression type of contained data"""
@@ -61,7 +61,7 @@ class DatFile(MutableMapping):
         data, compression = decompress(data)
         
         return cls(
-            value = nbt.TAG_Compound.from_bytes(data), 
+            value = TAG.Compound.from_bytes(data), 
             compression = compression, 
             filePath = filePath
         )

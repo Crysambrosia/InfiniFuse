@@ -1,8 +1,8 @@
-from minecraft.nbt import *
 import json
+import minecraft.TAG as TAG
 import os
 
-class BlockState(TAG_Compound):
+class BlockState(TAG.Compound):
     """Represents a block with all of its properties.
     
     This does NOT contain coordinates.
@@ -12,7 +12,7 @@ class BlockState(TAG_Compound):
     
     def __init__(self, name, properties = None):
 
-        self.value = { 'Name' : TAG_String(name), 'Properties' : TAG_Compound() }
+        self.value = { 'Name' : TAG.String(name), 'Properties' : TAG.Compound() }
         
         # Set all properties given to the constructor
         properties = {} if properties is None else properties
@@ -26,7 +26,7 @@ class BlockState(TAG_Compound):
 
     def set_property(self, key, value):
         """Edit a property with type and value checking"""
-        value = TAG_String(value)
+        value = TAG.String(value)
         
         if key not in self.validProperties:
             raise KeyError(f'Invalid property {key} for block {self["Name"]}')
