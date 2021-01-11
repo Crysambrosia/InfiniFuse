@@ -1,5 +1,5 @@
 from .compression import compress, decompress
-import collections.abc.MutableMapping
+import collections.abc
 import minecraft.TAG as TAG
 import mmap
 import os

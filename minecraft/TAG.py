@@ -7,6 +7,16 @@ import re
 import struct
 import util
 
+#-------------------------------------------- Functions --------------------------------------------
+
+def from_snbt(snbt):
+        """Create a TAG from SNBT when type is unknown"""
+        if snbt[0] == '{':
+            return Compound.from_snbt(snbt)
+        elif char == '[':
+            for i in Array.subtypes:
+                if 
+
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
 class Base(ABC):
@@ -45,7 +55,7 @@ class Base(ABC):
 
     @classmethod
     @property
-    def types(cls):
+    def subtypes(cls):
         return sorted(
             [i for i in util.all_subclasses(cls) if i.ID is not NotImplemented],
             key = lambda i : i.ID
@@ -308,30 +318,6 @@ class Array(MutableSequence):
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
-class TAG():
-    """Class storing static methods
-    To be used when the correct tag type is indeterminate before runtime
-    """
-    
-    @classmethod
-    @property
-    def types(cls):
-        """A list of all instantiable TAG types"""
-        return Base.types
-    
-    @staticmethod
-    def from_snbt(snbt):
-        """Create a TAG from SNBT when type is unknown"""
-        if snbt[0] == '{':
-            return Compound.from_snbt(snbt)
-        elif char == '[':
-            pass
-    
-    @staticmethod
-    def from_ID(n):
-        """Return the right TAG type based on its ID"""
-        return TAG.types[n]
-
 class End(Base):
     """You probably don't want to use this.
     
@@ -547,7 +533,7 @@ class List(MutableSequence):
     @classmethod
     def from_bytes(cls, iterable):
         iterator = iter(iterable)
-        elementType = TAG.from_ID( Byte.from_bytes(iterator) )
+        elementType = Base.subtypes[ Byte.from_bytes(iterator) ]
         return cls( super().decode_bytes(iterator, elementType) )
     
     @classmethod
@@ -578,7 +564,7 @@ class Compound(Base, collections.abc.MutableMapping):
         
         while True:
             try:
-                itemType = TAG.from_ID(Byte.from_bytes(iterator))
+                itemType = Base.subtypes[ Byte.from_bytes(iterator) ]
             except StopIteration:
                 break
             
@@ -593,27 +579,24 @@ class Compound(Base, collections.abc.MutableMapping):
     
     @classmethod
     def from_snbt(cls, snbt):
-        iterator = iter(snbt)
-        value = {}
         
-        if snbt[0] == '{':
-            next(iterator)
-        else:
+        if snbt[0] != '{':
             raise ValueError('Missing opening \'{\' !')
-
-        while True:
-            itemName = ''
-            for char in iterator:
-                if char not in [':']:
-                    itemName += char
-                else:
-                    break
-            
-            value[itemName] = TAG.from_snbt(iterator)
-            
-            #incomplete
         
-        return cls(value)
+        i = 1
+        itemName = ''
+        value = {}
+        while True:
+            if snbt[i] == '}':
+                break
+            elif snbt[i] == ':':
+                itemLength, value[itemName] = TAG.from_snbt(snbt[i+1:])
+                i += itemLength
+                itemName = ''
+            else:
+                itemName += snbt[i]
+            i += 1
+        return i, cls(value)
 
     def to_bytes(self):
         encoded = bytearray()

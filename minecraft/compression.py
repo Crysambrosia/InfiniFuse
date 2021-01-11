@@ -1,4 +1,3 @@
-import collections
 import gzip
 import zlib
 
