@@ -118,6 +118,21 @@ class Number(Value):
         byteValue = util.read_bytes(iterable, n = len(cls()))
         return cls( struct.unpack(cls.fmt, byteValue)[0] )
     
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        for i, char in enumerate(snbt[pos:]):
+            if char.isdigit or char == '.':
+                value += char
+            else:
+                break
+        if char in cls.suffixes:
+            i+= 1
+        else:
+            if '' not in cls.suffixes:
+                raise ValueError(f'Missing suffix for {cls} at position {pos}')
+        
+        return cls(value), pos+i
+    
     def to_snbt(self):
         return f'{self.value}{self.suffixes[0]}'
 
@@ -179,15 +194,6 @@ class Integer(Number):
     @unsigned.setter
     def unsigned(self):
         self._value = struct.pack(self.fmt.upper(), self.valueType(newValue))
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        for i, char in enumerate(snbt[pos:]):
-            if not char.isdigit:
-                break
-            else:
-                value += char
-        return value, pos+i
 
 util.make_wrappers( Integer,
     coercedMethods = [
