@@ -9,13 +9,14 @@ import util
 
 #-------------------------------------------- Functions --------------------------------------------
 
-def from_snbt(snbt):
+def from_snbt(snbt : str, pos : int = 0):
         """Create a TAG from SNBT when type is unknown"""
-        if snbt[0] == '{':
+        if snbt[pos] == '{':
             return Compound.from_snbt(snbt)
-        elif char == '[':
+        elif smnt[pos] == '[':
             for i in Array.subtypes:
                 if 
+        return value, pos
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -578,25 +579,32 @@ class Compound(Base, collections.abc.MutableMapping):
         return cls(value)
     
     @classmethod
-    def from_snbt(cls, snbt):
+    def from_snbt(cls, snbt : str, pos : int = 0):
         
-        if snbt[0] != '{':
-            raise ValueError('Missing opening \'{\' !')
+        if snbt[pos] != '{':
+            raise ValueError(f'Missing "{{" at {pos}!')
         
-        i = 1
         itemName = ''
         value = {}
-        while True:
-            if snbt[i] == '}':
-                break
-            elif snbt[i] == ':':
-                itemLength, value[itemName] = TAG.from_snbt(snbt[i+1:])
-                i += itemLength
-                itemName = ''
-            else:
-                itemName += snbt[i]
-            i += 1
-        return i, cls(value)
+        
+        try:
+            while True:
+                pos += 1
+                if snbt[pos] != ':':
+                    itemName += snbt[pos]
+                else:
+                    value[itemName], pos = TAG.from_snbt(snbt, pos+1)
+                    if snbt[pos] == ',':
+                        itemName = ''
+                        continue
+                    elif snbt[pos] == '}':
+                        break
+                    else:
+                        raise ValueError(f'Missing "," or "}}" at {pos} !')
+        except IndexError:
+            raise ValueError(f'Missing value for item "{itemName}" at {pos-len(itemName)}')
+        
+        return cls(value), pos+1
 
     def to_bytes(self):
         encoded = bytearray()
