@@ -15,7 +15,7 @@ def from_snbt(snbt : str, pos : int = 0):
             return Compound.from_snbt(snbt)
         elif smnt[pos] == '[':
             for i in Array.subtypes:
-                if 
+                pass
         return value, pos
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
@@ -31,13 +31,13 @@ class Base(ABC):
     def from_bytes(cls, iterable):
         """Create a tag from an iterable of NBT data bytes"""
         pass
-    
+    '''
     @classmethod
     @abstractmethod
     def from_snbt(cls, snbt):
         """Create a tag from a SNBT formatted string"""
         pass
-    
+    '''
     @classmethod
     def check_snbt(cls, snbt):
         """Check if provided SNBT is valid"""
@@ -110,11 +110,6 @@ class Number(Value):
     fmt = NotImplemented
     """Struct format string for packing and unpacking"""
     
-    regex = NotImplemented
-    """Regular Expression used for SNBT matching
-    Use with re.Pattern.fullmatch(regex) !
-    """
-    
     suffix = NotImplemented
     """SNBT value suffix"""
     
@@ -184,6 +179,15 @@ class Integer(Number):
     @unsigned.setter
     def unsigned(self):
         self._value = struct.pack(self.fmt.upper(), self.valueType(newValue))
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        for i, char in enumerate(snbt[pos:]):
+            if not char.isdigit:
+                break
+            else:
+                value += char
+        return value, pos+i
 
 util.make_wrappers( Integer,
     coercedMethods = [
@@ -311,6 +315,29 @@ class Array(MutableSequence):
         return cls( super().decode_bytes(iterable, cls.elementType) )
     
     @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        
+        if snbt[pos] != '[':
+            raise ValueError(f'Missing "[" at {pos}!')
+        if snbt[pos+1:pos+3] != cls.prefix:
+            raise ValueError(f'Invalid prefix {snbt[pos+1:pos+3]} (expected {cls.prefix})')
+        pos += 3
+        value = []
+
+        while True:
+            itemValue, pos = cls.elementType.from_snbt(snbt, pos+1)
+            value.append(itemValue)
+            if snbt[pos] == ',':
+                pos += 1
+                continue
+            elif snbt[pos] == ']':
+                break
+            else:
+                raise ValueError(f'Missing "," or "]" at {pos} !')
+        
+        return cls(value), pos+1
+
+    @classmethod
     @property
     def regex(cls):
         prefix = cls.prefix
@@ -341,46 +368,40 @@ class End(Base):
         return ''
 
 class Byte(Integer):
-    """UInt8 tag (0 to 255)"""
+    """Int8 tag (0 to 255)"""
     ID = 1
-    fmt = 'B'
-    regex = r"""[\d]+[bB]"""
-    suffix = 'b'
+    fmt = '>b'
+    suffixes = ['b','B']
 
 class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    regex = r"""[\d]+[sS]"""
-    suffix = 's'
+    suffixes = ['s','S']
   
 class Int(Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
-    regex = r"""[\d]+"""
-    suffix = ''
+    suffixes = ['']
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    regex = r"""[\d]+[lL]"""
-    suffix = 'L'
+    suffixes = ['L','l']
  
 class Float(Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
-    regex = r"""[\d.]+[fF]"""
-    suffix = 'f'
+    suffixes = ['f','F']
 
 class Double(Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    regex = r"""[\d.]+[dD]?"""
-    suffix = 'd'
+    suffixes = ['d','D','']
 
 class Byte_Array(Array):
     """A Byte array
