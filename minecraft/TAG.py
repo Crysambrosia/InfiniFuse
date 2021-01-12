@@ -593,7 +593,7 @@ class Compound(Base, collections.abc.MutableMapping):
                 if snbt[pos] != ':':
                     itemName += snbt[pos]
                 else:
-                    value[itemName], pos = TAG.from_snbt(snbt, pos+1)
+                    value[itemName], pos = from_snbt(snbt, pos+1)
                     if snbt[pos] == ',':
                         itemName = ''
                         continue
