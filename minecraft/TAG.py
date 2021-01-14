@@ -35,7 +35,11 @@ class Base(ABC):
     @classmethod
     @abstractmethod
     def from_snbt(cls, snbt):
-        """Create a tag from a SNBT formatted string"""
+        """Create a tag from a SNBT formatted string
+        Return a (value, pos) tuple, where :
+        - <value> is the created tag
+        - <pos> is the character index following this tag's snbt
+        """
         pass
     '''
     @classmethod
@@ -120,18 +124,29 @@ class Number(Value):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
+        try:
+            assert snbt != ''
+        except AssertionError:
+            raise ValueError(f'Empty snbt')
+        
+        value = ''
         for i, char in enumerate(snbt[pos:]):
-            if char.isdigit or char == '.':
+            if char.isdigit() or char == '.':
                 value += char
-            else:
+                continue
+            elif char in cls.suffixes:
                 break
-        if char in cls.suffixes:
-            i+= 1
+            elif '' in cls.suffixes:
+                i -= 1
+                break
         else:
             if '' not in cls.suffixes:
-                raise ValueError(f'Missing suffix for {cls} at position {pos}')
+                raise ValueError(f'Missing suffix for {cls} at {pos+i+1} (expected {" or ".join(cls.suffixes)})')
         
-        return cls(value), pos+i
+        try:
+            return cls(value), pos+i+1
+        except ValueError:
+            raise ValueError(f'Invalid value for {cls} at {pos} !')
     
     def to_snbt(self):
         return f'{self.value}{self.suffixes[0]}'
@@ -326,20 +341,22 @@ class Array(MutableSequence):
         if snbt[pos] != '[':
             raise ValueError(f'Missing "[" at {pos}!')
         if snbt[pos+1:pos+3] != cls.prefix:
-            raise ValueError(f'Invalid prefix {snbt[pos+1:pos+3]} (expected {cls.prefix})')
+            raise ValueError(f'Missing prefix for {cls} at {pos+1}-{pos+2} (expected {cls.prefix})')
         pos += 3
         value = []
-
+        
         while True:
-            itemValue, pos = cls.elementType.from_snbt(snbt, pos+1)
+            itemValue, pos = cls.elementType.from_snbt(snbt, pos)
             value.append(itemValue)
-            if snbt[pos] == ',':
-                pos += 1
-                continue
-            elif snbt[pos] == ']':
-                break
-            else:
-                raise ValueError(f'Missing "," or "]" at {pos} !')
+            try:
+                if snbt[pos] == ',':
+                    pos += 1
+                    continue
+                elif snbt[pos] == ']':
+                    break
+            except IndexError:
+                pass
+            raise ValueError(f'Missing "," or "]" at {pos} !')
         
         return cls(value), pos+1
 
