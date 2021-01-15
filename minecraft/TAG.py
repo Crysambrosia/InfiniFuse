@@ -124,12 +124,9 @@ class Number(Value):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        try:
-            assert snbt != ''
-        except AssertionError:
-            raise ValueError(f'Empty snbt')
         
         value = ''
+        
         for i, char in enumerate(snbt[pos:]):
             if char.isdigit() or char == '.':
                 value += char
@@ -139,8 +136,10 @@ class Number(Value):
             elif '' in cls.suffixes:
                 i -= 1
                 break
+            else:
+                raise ValueError(f'Missing suffix for {cls} at {pos+i+1} (expected {" or ".join(cls.suffixes)})')
         else:
-            if '' not in cls.suffixes:
+            if '' not in cls.suffixes and snbt[pos:] != '':
                 raise ValueError(f'Missing suffix for {cls} at {pos+i+1} (expected {" or ".join(cls.suffixes)})')
         
         try:
@@ -338,25 +337,33 @@ class Array(MutableSequence):
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
         
-        if snbt[pos] != '[':
-            raise ValueError(f'Missing "[" at {pos}!')
-        if snbt[pos+1:pos+3] != cls.prefix:
+        try:
+            assert snbt[pos] == '['
+        except (AssertionError, IndexError):
+            raise ValueError(f'Missing "[" at {pos}')
+        
+        try:
+            assert snbt[pos+1:pos+3] == cls.prefix
+        except (AssertionError, IndexError):
             raise ValueError(f'Missing prefix for {cls} at {pos+1}-{pos+2} (expected {cls.prefix})')
+        
         pos += 3
         value = []
         
-        while True:
-            itemValue, pos = cls.elementType.from_snbt(snbt, pos)
-            value.append(itemValue)
-            try:
-                if snbt[pos] == ',':
-                    pos += 1
-                    continue
-                elif snbt[pos] == ']':
-                    break
-            except IndexError:
-                pass
-            raise ValueError(f'Missing "," or "]" at {pos} !')
+        try:
+            if snbt[pos] != "]":
+                while True:
+                    itemValue, pos = cls.elementType.from_snbt(snbt, pos)
+                    value.append(itemValue)
+                    if snbt[pos] == ',':
+                        pos += 1
+                        continue
+                    elif snbt[pos] == ']':
+                        break
+                    else:
+                        raise ValueError(f'Missing "," or "]" at {pos}')
+        except IndexError:
+            raise ValueError(f'Missing "]" at {pos}')
         
         return cls(value), pos+1
 
@@ -450,6 +457,10 @@ class String(Value, Sequence):
         byteLength = Short.from_bytes(iterator)
         byteValue = util.read_bytes(iterator, n = byteLength)
         return cls( byteValue.decode(encoding='utf-8') )
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        pass
     
     def isidentifier(self):
         return False
@@ -625,9 +636,11 @@ class Compound(Base, collections.abc.MutableMapping):
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
         
-        if snbt[pos] != '{':
+        try:
+            assert snbt[pos] == '{'
+        except (AssertionError, IndexError):
             raise ValueError(f'Missing "{{" at {pos}!')
-        
+    
         itemName = ''
         value = {}
         
