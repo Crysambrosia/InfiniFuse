@@ -11,12 +11,12 @@ import util
 
 def from_snbt(snbt : str, pos : int = 0):
         """Create a TAG from SNBT when type is unknown"""
-        if snbt[pos] == '{':
-            return Compound.from_snbt(snbt)
-        elif smnt[pos] == '[':
-            for i in Array.subtypes:
-                pass
-        return value, pos
+        for i in Base.subtypes:
+            try:
+                return i.from_snbt(snbt, pos)
+            except ValueError:
+                continue
+        raise ValueError('Invalid SNBT')
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -25,6 +25,9 @@ class Base(ABC):
     
     ID = NotImplemented
     """ID of this Tag"""
+    
+    snbtPriority = NotImplementedError
+    """Determines priority for from_snbt"""
 
     @classmethod
     @abstractmethod
@@ -250,6 +253,9 @@ util.make_wrappers(Sequence, nonCoercedMethods = ['__getitem__', '__iter__', '__
 class MutableSequence(Sequence, collections.abc.MutableSequence):
     """Abstract Base Class for Mutable collections.abc.Sequence tag types"""
     
+    prefix = NotImplemented
+    """SNBT list Prefix"""
+    
     valueType = list
     
     def __init__(self, value = None):
@@ -270,15 +276,30 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
         length = Int.from_bytes(iterator)
         
         return [elementType.from_bytes(iterator) for _ in range(length)]
-    
-    @staticmethod
-    def decode_snbt(snbt, elementType):
-        """Convert snbt -> collections.abc.Sequence of values of elementType"""
-        return [elementType(i) for i in snbt.strip('[]').split(',')]
 
     @property
     def elementID(self):
         return self.elementType.ID
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int, elementType):
+        value = []
+        try:
+            if snbt[pos] != "]":
+                while True:
+                    itemValue, pos = elementType.from_snbt(snbt, pos)
+                    value.append(itemValue)
+                    if snbt[pos] == ',':
+                        pos += 1
+                        continue
+                    elif snbt[pos] == ']':
+                        break
+                    else:
+                        raise ValueError(f'Missing "," or "]" at {pos}')
+        except IndexError:
+            raise ValueError(f'Missing "]" at {pos}')
+        
+        return cls(value), pos+1
 
     def insert(self, key, value):
         self.value = self[:key] + [value] + self[key:]
@@ -327,9 +348,6 @@ util.make_wrappers( MutableSequence,
 class Array(MutableSequence):
     """Abstract Base Class for Array tag types"""
     
-    prefix = NotImplemented
-    """SNBT list Prefix"""
-    
     @classmethod
     def from_bytes(cls, iterable):
         return cls( super().decode_bytes(iterable, cls.elementType) )
@@ -347,25 +365,10 @@ class Array(MutableSequence):
         except (AssertionError, IndexError):
             raise ValueError(f'Missing prefix for {cls} at {pos+1}-{pos+2} (expected {cls.prefix})')
         
+        elementType = cls.elementType
         pos += 3
-        value = []
         
-        try:
-            if snbt[pos] != "]":
-                while True:
-                    itemValue, pos = cls.elementType.from_snbt(snbt, pos)
-                    value.append(itemValue)
-                    if snbt[pos] == ',':
-                        pos += 1
-                        continue
-                    elif snbt[pos] == ']':
-                        break
-                    else:
-                        raise ValueError(f'Missing "," or "]" at {pos}')
-        except IndexError:
-            raise ValueError(f'Missing "]" at {pos}')
-        
-        return cls(value), pos+1
+        return super().from_snbt(snbt, pos, elementType)
 
     @classmethod
     @property
@@ -390,6 +393,10 @@ class End(Base):
     @classmethod
     def from_bytes(cls, value):
         return cls(value)
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        raise ValueError(f'No valid SNBT exists for {cls}')
     
     def to_bytes(self):
         return b'\x00'
@@ -460,7 +467,33 @@ class String(Value, Sequence):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        pass
+        
+        if snbt[pos] == '"':
+            quote = '"'
+        elif snbt[pos] == "'":
+            quote = "'"
+        else:
+            raise ValueError(f'Missing " or \' at {pos}')
+            
+        i = 0
+        value = ''
+        
+        try:
+            while True:
+                i += 1
+                if snbt[pos+i] == '\\':
+                    value += snbt[pos+i:pos+i+2]
+                    i += 1
+                    continue
+                elif snbt[pos+i] == quote:
+                    break
+                else:
+                    value += snbt[pos+i]
+                    continue
+        except IndexError:
+            raise ValueError(f'Unterminated string at {pos} (missing {quote})')
+        
+        return cls(value), pos+i+1
     
     def isidentifier(self):
         return False
@@ -593,9 +626,16 @@ class List(MutableSequence):
         return cls( super().decode_bytes(iterator, elementType) )
     
     @classmethod
-    @property
-    def regex(cls):
-        pass
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        try:
+            assert snbt[pos] == '['
+        except (AssertionError, IndexError):
+            raise ValueError(f'Missing "[" at {pos}')
+        
+        pos += 1
+        elementType = type(from_snbt(snbt, pos)[0])
+        
+        return super().from_snbt(snbt, pos, elementType)
     
     def to_bytes(self):
         return Byte(self.elementID).to_bytes() + super().to_bytes()
@@ -641,23 +681,24 @@ class Compound(Base, collections.abc.MutableMapping):
         except (AssertionError, IndexError):
             raise ValueError(f'Missing "{{" at {pos}!')
     
+        pos += 1
         itemName = ''
         value = {}
         
         try:
-            while True:
-                pos += 1
-                if snbt[pos] != ':':
-                    itemName += snbt[pos]
-                else:
-                    value[itemName], pos = from_snbt(snbt, pos+1)
-                    if snbt[pos] == ',':
-                        itemName = ''
-                        continue
-                    elif snbt[pos] == '}':
-                        break
+            if snbt[pos] != '}':
+                while True:
+                    if snbt[pos] != ':':
+                        itemName += snbt[pos]
                     else:
-                        raise ValueError(f'Missing "," or "}}" at {pos} !')
+                        value[itemName], pos = from_snbt(snbt, pos+1)
+                        if snbt[pos] == ',':
+                            itemName = ''
+                        elif snbt[pos] == '}':
+                            break
+                        else:
+                            raise ValueError(f'Missing "," or "}}" at {pos} !')
+                    pos += 1
         except IndexError:
             raise ValueError(f'Missing value for item "{itemName}" at {pos-len(itemName)}')
         
