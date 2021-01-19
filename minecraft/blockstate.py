@@ -8,7 +8,7 @@ class BlockState(TAG.Compound):
     This does NOT contain coordinates.
     Chunks, and Worlds by extension, are responsible for coordinates.
     """
-    ID = NotImplemented
+    ID = None
     
     def __init__(self, name, properties = None):
 

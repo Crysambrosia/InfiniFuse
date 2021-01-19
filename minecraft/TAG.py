@@ -23,10 +23,10 @@ def from_snbt(snbt : str, pos : int = 0):
 class Base(ABC):
     """Abstract Base Class of all tag types"""
     
-    ID = NotImplemented
+    ID = None
     """ID of this Tag"""
     
-    snbtPriority = NotImplemented
+    snbtPriority = None
     """Determines priority for from_snbt
     Lowest goes first
     """
@@ -68,7 +68,7 @@ class Base(ABC):
     @property
     def subtypes(cls):
         return sorted(
-            [i for i in util.all_subclasses(cls) if i.ID is not NotImplemented],
+            [i for i in util.all_subclasses(cls) if i.ID is not None],
             key = lambda i : i.ID
         )
     
@@ -117,11 +117,11 @@ class Number(Value):
     Assignments to .value are automatically encoded and boundary checked
     """
 
-    fmt = NotImplemented
+    fmt = None
     """Struct format string for packing and unpacking"""
     
-    suffix = NotImplemented
-    """SNBT value suffix"""
+    suffixes = None
+    """valid SNBT suffixes"""
     
     @classmethod
     def from_bytes(cls, iterable):
@@ -137,7 +137,7 @@ class Number(Value):
             raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def to_snbt(self):
-        return f'{self.value}{self.suffixes[:1]}'
+        return f'{self.value}' + ('' if self.suffixes is None else f'{self.suffixes[0]}')
 
     @property
     def value(self):
@@ -189,6 +189,11 @@ class Integer(Number):
     
     valueType = int
     
+    @classmethod
+    @property
+    def regex(cls):
+        return f'(?P<value>\\d+){"" if cls.suffixes is None else f"(?P<suffix>[{cls.suffixes}])"}'
+    
     @property
     def unsigned(self):
         """The unsigned equivalent of this tag's value"""
@@ -222,6 +227,7 @@ util.make_wrappers( Integer,
 class Decimal(Number):
     """Abstract Base Class for decimal numerical tag types"""
     
+    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))'
     valueType = float
     
     @classmethod
@@ -239,7 +245,7 @@ util.make_wrappers(Sequence, nonCoercedMethods = ['__getitem__', '__iter__', '__
 class MutableSequence(Sequence, collections.abc.MutableSequence):
     """Abstract Base Class for Mutable collections.abc.Sequence tag types"""
     
-    prefix = NotImplemented
+    prefix = None
     """SNBT list Prefix"""
     
     valueType = list
@@ -395,7 +401,6 @@ class Byte(Integer):
     """Int8 tag (0 to 255)"""
     ID = 1
     fmt = '>b'
-    regex = r'(?P<value>\d+)(?P<suffix>[bB])'
     snbtPriority = 6
     suffixes = 'bB'
 
@@ -403,7 +408,6 @@ class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    regex = r'(?P<value>\d+)(?P<suffix>[sS])'
     snbtPriority = 7
     suffixes = 'sS'
   
@@ -412,14 +416,11 @@ class Int(Integer):
     ID = 3
     fmt = '>i'
     snbtPriority = 9
-    regex = r'(?P<value>\d+)'
-    suffixes = ''
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    regex = r'(?P<value>\d+)(?P<suffix>[lL])'
     snbtPriority = 8
     suffixes = 'Ll'
  
@@ -427,7 +428,7 @@ class Float(Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
-    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))(?P<suffix>[fF])'
+    regex = f'{Decimal.regex}(?P<suffix>[fF])'
     snbtPriority = 10
     suffixes = 'fF'
 
@@ -435,7 +436,7 @@ class Double(Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))(?P<suffix>(?(dot)[dD]?|[dD]))'
+    regex = f'{Decimal.regex}(?P<suffix>(?(dot)[dD]?|[dD]))'
     snbtPriority = 11
     suffixes = 'dD'
 
