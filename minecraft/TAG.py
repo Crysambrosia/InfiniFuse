@@ -105,6 +105,14 @@ class Value(Base):
     def bit_length(self):
         """Returns the BIT length of this tag's value after encoding"""
         return len(self._value) * 8
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        match = re.compile(cls.regex).match(snbt[pos:])
+        try:
+            return cls(match['value']), pos + match.end()
+        except:
+            raise ValueError(f'Invalid snbt for {cls} at {pos}')
 
     def to_bytes(self):
         return self._value
@@ -127,14 +135,6 @@ class Number(Value):
     def from_bytes(cls, iterable):
         byteValue = util.read_bytes(iterable, n = len(cls()))
         return cls( struct.unpack(cls.fmt, byteValue)[0] )
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        match = re.compile(cls.regex).match(snbt[pos:])
-        try:
-            return cls(match['value']), match.end()
-        except:
-            raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def to_snbt(self):
         return f'{self.value}' + ('' if self.suffixes is None else f'{self.suffixes[0]}')
@@ -456,7 +456,7 @@ class String(Value, Sequence):
     Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
     ID = 8
-    regex = r"""(?P<openQuote>['"])(?P<text>((?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
+    regex = r"""(?P<openQuote>['"])(?P<value>((?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
     snbtPriority = 5
     valueType = str
 
@@ -466,14 +466,6 @@ class String(Value, Sequence):
         byteLength = Short.from_bytes(iterator)
         byteValue = util.read_bytes(iterator, n = byteLength)
         return cls( byteValue.decode(encoding='utf-8') )
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        match = re.compile(cls.regex).match(snbt[pos:])
-        try:
-            return cls(match['text']), match.end()
-        except:
-            raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def isidentifier(self):
         return False

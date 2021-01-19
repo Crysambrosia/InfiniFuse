@@ -48,13 +48,7 @@ class DatFile(collections.abc.MutableMapping):
         """Open from direct file path"""
         
         # Format file name for repr
-        formattedFile = ''
-        for character in filePath:
-            if character == '/':
-                formattedFile += '\\'
-            else:
-                formattedFile += character
-        filePath = formattedFile
+        filePath = ''.join([char if char != '/' else '\\' for char in filePath])
         
         with open(filePath, mode='rb') as f:
             data = f.read()
