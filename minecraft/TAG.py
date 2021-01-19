@@ -11,7 +11,7 @@ import util
 
 def from_snbt(snbt : str, pos : int = 0):
         """Create a TAG from SNBT when type is unknown"""
-        for i in Base.subtypes:
+        for i in sorted(Base.subtypes, key = lambda i : i.snbtPriority):
             try:
                 return i.from_snbt(snbt, pos)
             except ValueError:
@@ -26,15 +26,17 @@ class Base(ABC):
     ID = NotImplemented
     """ID of this Tag"""
     
-    snbtPriority = NotImplementedError
-    """Determines priority for from_snbt"""
+    snbtPriority = NotImplemented
+    """Determines priority for from_snbt
+    Lowest goes first
+    """
 
     @classmethod
     @abstractmethod
     def from_bytes(cls, iterable):
         """Create a tag from an iterable of NBT data bytes"""
         pass
-    '''
+    
     @classmethod
     @abstractmethod
     def from_snbt(cls, snbt):
@@ -44,7 +46,7 @@ class Base(ABC):
         - <pos> is the character index following this tag's snbt
         """
         pass
-    '''
+    
     @classmethod
     def check_snbt(cls, snbt):
         """Check if provided SNBT is valid"""
@@ -127,28 +129,12 @@ class Number(Value):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        
-        value = ''
-        
-        for i, char in enumerate(snbt[pos:]):
-            if char.isdigit() or char == '.':
-                value += char
-                continue
-            elif char in cls.suffixes:
-                break
-            elif '' in cls.suffixes:
-                i -= 1
-                break
-            else:
-                raise ValueError(f'Missing suffix for {cls} at {pos+i+1} (expected {" or ".join(cls.suffixes)})')
-        else:
-            if '' not in cls.suffixes and snbt[pos:] != '':
-                raise ValueError(f'Missing suffix for {cls} at {pos+i+1} (expected {" or ".join(cls.suffixes)})')
-        
+        match = re.compile(cls.regex).match(snbt[pos:])
         try:
-            return cls(value), pos+i+1
-        except ValueError:
-            raise ValueError(f'Invalid value for {cls} at {pos} !')
+            value = match[0].strip(''.join(cls.suffixes))
+            return cls(value), match.end()
+        except:
+            raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def to_snbt(self):
         return f'{self.value}{self.suffixes[0]}'
@@ -385,6 +371,7 @@ class End(Base):
     Ends a Compound, expect erratic behavior if inserted inside one.
     """
     ID = 0
+    snbtPriority = 12
     valueType = None
     
     def __init__(self, value = None):
@@ -408,37 +395,49 @@ class Byte(Integer):
     """Int8 tag (0 to 255)"""
     ID = 1
     fmt = '>b'
+    regex = r'\d+[bB]'
+    snbtPriority = 6
     suffixes = ['b','B']
 
 class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
+    regex = r'\d+[sS]'
+    snbtPriority = 7
     suffixes = ['s','S']
   
 class Int(Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
+    snbtPriority = 9
+    regex = r'\d+'
     suffixes = ['']
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
+    regex = r'\d+[lL]'
+    snbtPriority = 8
     suffixes = ['L','l']
  
 class Float(Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
+    regex = r'(\d*)?\.?(?(1)\d*|\d+)[fF]'
+    snbtPriority = 10
     suffixes = ['f','F']
 
 class Double(Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    suffixes = ['d','D','']
+    regex = r'(\d)*(\.)?(?(1)\d*|\d+)(?(2)[dD]?|[dD])'
+    snbtPriority = 11
+    suffixes = ['d','D']
 
 class Byte_Array(Array):
     """A Byte array
@@ -448,6 +447,7 @@ class Byte_Array(Array):
     ID = 7
     elementType = Byte
     prefix = 'B;'
+    snbtPriority = 1
     
 class String(Value, Sequence):
     """Unicode string tag
@@ -455,7 +455,7 @@ class String(Value, Sequence):
     Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
     ID = 8
-    regex = r"""(['"])((?!\1)[^\\]|\\.)*\1"""
+    snbtPriority = 5
     valueType = str
 
     @classmethod
@@ -602,6 +602,7 @@ class List(MutableSequence):
 
     ID = 9
     prefix = ''
+    snbtPriority = 4
 
     def append(self, value):
         """Append to the list, perform type checking unless it is empty"""
@@ -643,7 +644,7 @@ class List(MutableSequence):
 class Compound(Base, collections.abc.MutableMapping):
     """A Tag dictionary, containing other names tags of any type."""
     ID = 10
-    regex = r'{([^,:]*:[^,:]*)?(?(1)(,[^,:]*:[^,:]*)*)}'
+    snbtPriority = 0
     valueType = dict
 
     def __init__(self, value=None):
@@ -747,6 +748,7 @@ class Int_Array(Array):
     ID = 11
     elementType = Int
     prefix = 'I;'
+    snbtPriority = 2
     
 class Long_Array(Array):
     """A Long array
@@ -756,3 +758,4 @@ class Long_Array(Array):
     ID = 12
     elementType = Long
     prefix = 'L;'
+    snbtPriority = 3
