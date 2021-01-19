@@ -40,9 +40,10 @@ class Base(ABC):
     @classmethod
     @abstractmethod
     def from_snbt(cls, snbt):
-        """Create a tag from a SNBT formatted string
+        """Create a new TAG from SNBT
+        
         Return a (value, pos) tuple, where :
-        - <value> is the created tag
+        - <value> is a tag created from SNBT
         - <pos> is the character index following this tag's snbt
         """
         pass
@@ -131,13 +132,12 @@ class Number(Value):
     def from_snbt(cls, snbt : str, pos : int = 0):
         match = re.compile(cls.regex).match(snbt[pos:])
         try:
-            value = match[0].strip(''.join(cls.suffixes))
-            return cls(value), match.end()
+            return cls(match['value']), match.end()
         except:
             raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def to_snbt(self):
-        return f'{self.value}{self.suffixes[0]}'
+        return f'{self.value}{self.suffixes[:1]}'
 
     @property
     def value(self):
@@ -395,49 +395,49 @@ class Byte(Integer):
     """Int8 tag (0 to 255)"""
     ID = 1
     fmt = '>b'
-    regex = r'\d+[bB]'
+    regex = r'(?P<value>\d+)(?P<suffix>[bB])'
     snbtPriority = 6
-    suffixes = ['b','B']
+    suffixes = 'bB'
 
 class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    regex = r'\d+[sS]'
+    regex = r'(?P<value>\d+)(?P<suffix>[sS])'
     snbtPriority = 7
-    suffixes = ['s','S']
+    suffixes = 'sS'
   
 class Int(Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
     snbtPriority = 9
-    regex = r'\d+'
-    suffixes = ['']
+    regex = r'(?P<value>\d+)'
+    suffixes = ''
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    regex = r'\d+[lL]'
+    regex = r'(?P<value>\d+)(?P<suffix>[lL])'
     snbtPriority = 8
-    suffixes = ['L','l']
+    suffixes = 'Ll'
  
 class Float(Decimal):
     """Single precision float tag (32 bits)"""
     ID = 5
     fmt = '>f'
-    regex = r'(\d*)?\.?(?(1)\d*|\d+)[fF]'
+    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))(?P<suffix>[fF])'
     snbtPriority = 10
-    suffixes = ['f','F']
+    suffixes = 'fF'
 
 class Double(Decimal):
     """Double precision float tag (64 bits)"""
     ID = 6
     fmt = '>d'
-    regex = r'(\d)*(\.)?(?(1)\d*|\d+)(?(2)[dD]?|[dD])'
+    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))(?P<suffix>(?(dot)[dD]?|[dD]))'
     snbtPriority = 11
-    suffixes = ['d','D']
+    suffixes = 'dD'
 
 class Byte_Array(Array):
     """A Byte array
@@ -455,6 +455,7 @@ class String(Value, Sequence):
     Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
     ID = 8
+    regex = r"""(?P<openQuote>['"])(?P<text>((?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
     snbtPriority = 5
     valueType = str
 
@@ -467,33 +468,11 @@ class String(Value, Sequence):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        
-        if snbt[pos] == '"':
-            quote = '"'
-        elif snbt[pos] == "'":
-            quote = "'"
-        else:
-            raise ValueError(f'Missing " or \' at {pos}')
-            
-        i = 0
-        value = ''
-        
+        match = re.compile(cls.regex).match(snbt[pos:])
         try:
-            while True:
-                i += 1
-                if snbt[pos+i] == '\\':
-                    value += snbt[pos+i:pos+i+2]
-                    i += 1
-                    continue
-                elif snbt[pos+i] == quote:
-                    break
-                else:
-                    value += snbt[pos+i]
-                    continue
-        except IndexError:
-            raise ValueError(f'Unterminated string at {pos} (missing {quote})')
-        
-        return cls(value), pos+i+1
+            return cls(match['text']), match.end()
+        except:
+            raise ValueError(f'Invalid snbt for {cls} at {pos}')
     
     def isidentifier(self):
         return False
