@@ -76,6 +76,7 @@ class DatFile(collections.abc.MutableMapping):
 
 util.make_wrappers( DatFile, 
     nonCoercedMethods = [
+        'keys',
         'to_bytes',
         '__delitem__', 
         '__eq__', 

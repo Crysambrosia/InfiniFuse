@@ -11,12 +11,19 @@ import util
 
 def from_snbt(snbt : str, pos : int = 0):
         """Create a TAG from SNBT when type is unknown"""
+        print(f'Starting tests at {pos}')
         for i in sorted(Base.subtypes, key = lambda i : i.snbtPriority):
             try:
-                return i.from_snbt(snbt, pos)
+                print(f'Trying {i} at {pos}')
+                value, pos =  i.from_snbt(snbt, pos)
             except ValueError:
+                print(f'Failed {i} at {pos}')
                 continue
-        raise ValueError('Invalid SNBT')
+            else:
+                print(f'--- Success with {i} at {pos} ---')
+                return value, pos
+        print(f'Everything failed at {pos}')
+        raise ValueError(f'Invalid SNBT at {pos}')
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -179,8 +186,7 @@ util.make_wrappers( Number,
         '__rfloordiv__',
         '__rpow__',
         '__rsub__',
-        '__rtruediv__',
-        '__str__'
+        '__rtruediv__'
     ]
 )
 
@@ -401,27 +407,27 @@ class Byte(Integer):
     """Int8 tag (0 to 255)"""
     ID = 1
     fmt = '>b'
-    snbtPriority = 6
+    snbtPriority = 8
     suffixes = 'bB'
 
 class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
     ID = 2
     fmt = '>h'
-    snbtPriority = 7
+    snbtPriority = 9
     suffixes = 'sS'
   
 class Int(Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
     ID = 3
     fmt = '>i'
-    snbtPriority = 9
+    snbtPriority = 11
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
     ID = 4
     fmt = '>q'
-    snbtPriority = 8
+    snbtPriority = 10
     suffixes = 'Ll'
  
 class Float(Decimal):
@@ -429,7 +435,7 @@ class Float(Decimal):
     ID = 5
     fmt = '>f'
     regex = f'{Decimal.regex}(?P<suffix>[fF])'
-    snbtPriority = 10
+    snbtPriority = 6
     suffixes = 'fF'
 
 class Double(Decimal):
@@ -437,7 +443,7 @@ class Double(Decimal):
     ID = 6
     fmt = '>d'
     regex = f'{Decimal.regex}(?P<suffix>(?(dot)[dD]?|[dD]))'
-    snbtPriority = 11
+    snbtPriority = 7
     suffixes = 'dD'
 
 class Byte_Array(Array):
@@ -499,17 +505,9 @@ class String(Value, Sequence):
         return [self.__class__(i) for i in self.value.splitlines(keepends)]
     
     def to_snbt(self):
-        snbt = '"'
-        
-        # Escape double quotes
-        for character in self.value:
-            if character == '"':
-                snbt += '\\"'
-            else:
-                snbt += character
-
-        snbt += '"'
-        return snbt
+        # f-string does not allow for backslashes inside the {}, hence the workaround
+        # I think this ban is stupid but I don't control python (yet ?)
+        return '"{}"'.format(''.join([char if char != '"' else r'\"' for char in self]))
 
     @property
     def value(self):
@@ -519,9 +517,6 @@ class String(Value, Sequence):
     def value(self, newValue):
         newValue = str.encode( self.valueType(newValue) )
         self._value = Short(len(newValue)).to_bytes() + newValue
-   
-    def __str__(self):
-        return self.value
 
 util.make_wrappers( String,
     coercedMethods = [
@@ -657,7 +652,6 @@ class Compound(Base, collections.abc.MutableMapping):
         pos += 1
         itemName = ''
         value = {}
-        
         try:
             if snbt[pos] != '}':
                 while True:
@@ -692,7 +686,7 @@ class Compound(Base, collections.abc.MutableMapping):
         return encoded
 
     def to_snbt(self):
-        return f'{{{",".join( [f"{key}:{self[key].to_snbt()}" for key in self] )}}}'
+        return f"""{{{','.join([f'''{f'"{key}"' if ':' in key else key}:{self[key]}''' for key in self])}}}"""
     
     def __setitem__(self, key, value):
         """Replace self[key] with value.
@@ -709,7 +703,7 @@ class Compound(Base, collections.abc.MutableMapping):
         self.value[key] = value
     
 util.make_wrappers( Compound,
-    nonCoercedMethods = ['__delitem__', '__getitem__', '__iter__', '__len__']
+    nonCoercedMethods = ['keys', '__delitem__', '__getitem__', '__iter__', '__len__']
 )
 
 class Int_Array(Array):
