@@ -462,7 +462,7 @@ class String(Value, Sequence):
     Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
     ID = 8
-    regex = r"""(?P<openQuote>['"])(?P<value>((?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
+    regex = r"""(?P<openQuote>['"])(?P<value>(?:(?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
     snbtPriority = 5
     valueType = str
 
@@ -650,22 +650,20 @@ class Compound(Base, collections.abc.MutableMapping):
             raise ValueError(f'Missing "{{" at {pos}!')
     
         pos += 1
-        itemName = ''
         value = {}
+        regex = re.compile(r'(?P<openQuote>")?(?P<name>(?(openQuote)[^"]|[^":,}])*)(?(openQuote)(?P<endQuote>")):')
         try:
-            if snbt[pos] != '}':
-                while True:
-                    if snbt[pos] != ':':
-                        itemName += snbt[pos]
-                    else:
-                        value[itemName], pos = from_snbt(snbt, pos+1)
-                        if snbt[pos] == ',':
-                            itemName = ''
-                        elif snbt[pos] == '}':
-                            break
-                        else:
-                            raise ValueError(f'Missing "," or "}}" at {pos} !')
-                    pos += 1
+            while True:
+                match = regex.match(snbt[pos:]])
+                if match is not None:
+                    value[match['name']], pos = from_snbt(snbt, match.end())
+                    if snbt[pos] == ',':
+                        pos += 1
+                        continue
+                if snbt[pos] == '}':
+                    break
+                else:
+                    raise ValueError(f'Missing "," or "}}" at {pos} !')
         except IndexError:
             raise ValueError(f'Missing value for item "{itemName}" at {pos-len(itemName)}')
         
@@ -686,7 +684,15 @@ class Compound(Base, collections.abc.MutableMapping):
         return encoded
 
     def to_snbt(self):
-        return f"""{{{','.join([f'''{f'"{key}"' if ':' in key else key}:{self[key]}''' for key in self])}}}"""
+
+        pairs = []
+        for key in self:
+            if ':' in key or ',' in key or '}' in key:
+                pairs.append(f'"{key}":{self[key]}')
+            else:
+                pairs.append(f'{key}:{self[key]}')
+        
+        return f'{{{",".join(pairs)}}}'
     
     def __setitem__(self, key, value):
         """Replace self[key] with value.
