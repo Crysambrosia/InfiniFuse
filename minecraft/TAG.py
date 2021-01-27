@@ -23,7 +23,7 @@ def from_snbt(snbt : str, pos : int = 0):
                 print(f'--- Success with {i} at {pos} ---')
                 return value, pos
         print(f'Everything failed at {pos}')
-        return (None, 0)
+        raise ValueError(f'Invalid snbt at {pos}')
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -198,7 +198,7 @@ class Integer(Number):
     @classmethod
     @property
     def regex(cls):
-        return f'(?P<value>\\d+){"" if cls.suffixes is None else f"(?P<suffix>[{cls.suffixes}])"}'
+        return f'(?P<value>(?P<negative>-)?\\d+){"" if cls.suffixes is None else f"(?P<suffix>[{cls.suffixes}])"}'
     
     @property
     def unsigned(self):
@@ -233,7 +233,7 @@ util.make_wrappers( Integer,
 class Decimal(Number):
     """Abstract Base Class for decimal numerical tag types"""
     
-    regex = r'(?P<value>(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))'
+    regex = r'(?P<value>(?P<negative>-)?(?P<integer>\d+)?(?P<dot>\.)?(?P<decimal>(?(integer)\d*|\d+)))'
     valueType = float
     
     @classmethod
@@ -249,7 +249,7 @@ class Sequence(Base, collections.abc.Sequence):
 util.make_wrappers(Sequence, nonCoercedMethods = ['__getitem__', '__iter__', '__len__'])
 
 class MutableSequence(Sequence, collections.abc.MutableSequence):
-    """Abstract Base Class for Mutable collections.abc.Sequence tag types"""
+    """Abstract Base Class for MutableSequence tag types"""
     
     prefix = None
     """SNBT list Prefix"""
@@ -267,25 +267,44 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
     def append(self, value):
         self.value.append(self.elementType(value))
 
-    @staticmethod
-    def decode_bytes(iterable, elementType):
-        """Convert bytes -> sequence of values of elementType"""
+    @classmethod
+    def from_bytes(cls, iterable):
         iterator = iter(iterable)
-        length = Int.from_bytes(iterator)
         
-        return [elementType.from_bytes(iterator) for _ in range(length)]
+        if isinstance(cls.elementType, property):
+            elementType = Base.subtypes[ Byte.from_bytes(iterator) ]
+        else:
+            elementType = cls.elementType
+            
+        length = Int.from_bytes(iterator)
+        return cls([elementType.from_bytes(iterator) for _ in range(length)])
 
     @property
     def elementID(self):
         return self.elementType.ID
     
     @classmethod
-    def from_snbt(cls, snbt : str, pos : int, elementType):
+    def from_snbt(cls, snbt : str, pos : int = 0):
+    
+        match = re.compile(f'\\[{cls.prefix}').match(snbt, pos)
+        if match is None:
+            raise ValueError(f'Missing "[" at {pos} for {cls}')
+        
+        pos = match.end()
         value = []
+        
+        
         if snbt[pos] != ']':
+            
+            if isinstance(cls.elementType, property):
+                elementType = type(from_snbt(snbt, pos)[0])
+            else:
+                elementType = cls.elementType
+            
             while True:
                 itemValue, pos = elementType.from_snbt(snbt, pos)
                 value.append(itemValue)
+                
                 if snbt[pos] == ',':
                     pos += 1
                     continue
@@ -298,11 +317,6 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
 
     def insert(self, key, value):
         self.value = self[:key] + [value] + self[key:]
-
-    @classmethod
-    @property
-    def regex(cls):
-        return f'\\[{cls.prefix}'
     
     def sort(self, *, key=None, reverse=False):
         self.value.sort(key=key, reverse=reverse)
@@ -318,7 +332,7 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
         return encoded
     
     def to_snbt(self):
-        return f'[{self.prefix}{",".join( [repr(i) for i in self.value] )}]'
+        return f'[{self.prefix}{",".join( [i.to_snbt() for i in self.value] )}]'
     
     def __add__(self, other):
         return type(self)( self.value + [self.elementType(i) for i in other] )
@@ -344,21 +358,6 @@ util.make_wrappers( MutableSequence,
         '__radd__'
     ]
 )
-
-class Array(MutableSequence):
-    """Abstract Base Class for Array tag types"""
-    
-    @classmethod
-    def from_bytes(cls, iterable):
-        return cls( super().decode_bytes(iterable, cls.elementType) )
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        
-        match = re.compile(cls.regex).match(snbt[pos])
-        if match is None:
-            raise ValueError(f'Missing "[" or {cls.prefix} at {pos} for {cls}')
-        return super().from_snbt(snbt, pos+3, cls.elementType)
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
@@ -434,7 +433,7 @@ class Double(Decimal):
     snbtPriority = 7
     suffixes = 'dD'
 
-class Byte_Array(Array):
+class Byte_Array(MutableSequence):
     """A Byte array
     
     Contained tags have no name
@@ -505,6 +504,9 @@ class String(Value, Sequence):
     def value(self, newValue):
         newValue = str.encode( self.valueType(newValue) )
         self._value = Short(len(newValue)).to_bytes() + newValue
+    
+    def __str__(self):
+        return self.value
 
 util.make_wrappers( String,
     coercedMethods = [
@@ -574,26 +576,6 @@ class List(MutableSequence):
             return type(self[0])
         else:
             return End
-
-    @classmethod
-    def from_bytes(cls, iterable):
-        iterator = iter(iterable)
-        elementType = Base.subtypes[ Byte.from_bytes(iterator) ]
-        return cls( super().decode_bytes(iterator, elementType) )
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        
-        match = re.compile(cls.regex).match(snbt[pos])
-        if match is None:
-            raise ValueError(f'Missing "[" or {cls.prefix} at {pos} for {cls}')
-        pos += 1
-        
-        elementType = type(from_snbt(snbt, pos)[0])
-        try:
-            return super().from_snbt(snbt, pos, elementType)
-        except AttributeError:
-            raise ValueError(f'Could not determine element type of {cls} at {pos}')
     
     def to_bytes(self):
         return Byte(self.elementID).to_bytes() + super().to_bytes()
@@ -679,10 +661,10 @@ class Compound(Base, collections.abc.MutableMapping):
 
         pairs = []
         for key in self:
+            value = self[key].to_snbt()
             if ':' in key or ',' in key or '}' in key:
-                pairs.append(f'"{key}":{self[key]}')
-            else:
-                pairs.append(f'{key}:{self[key]}')
+                key = f'"{key}"'
+            pairs.append(f'{key}:{value}')
         
         return f'{{{",".join(pairs)}}}'
     
@@ -704,7 +686,7 @@ util.make_wrappers( Compound,
     nonCoercedMethods = ['keys', '__delitem__', '__getitem__', '__iter__', '__len__']
 )
 
-class Int_Array(Array):
+class Int_Array(MutableSequence):
     """A Int array
     
     Contained tags have no name
@@ -714,7 +696,7 @@ class Int_Array(Array):
     prefix = 'I;'
     snbtPriority = 2
     
-class Long_Array(Array):
+class Long_Array(MutableSequence):
     """A Long array
     
     Contained tags have no name
