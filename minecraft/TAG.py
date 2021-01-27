@@ -23,7 +23,7 @@ def from_snbt(snbt : str, pos : int = 0):
                 print(f'--- Success with {i} at {pos} ---')
                 return value, pos
         print(f'Everything failed at {pos}')
-        raise ValueError(f'Invalid SNBT at {pos}')
+        return (None, 0)
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
 
@@ -282,25 +282,27 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
     @classmethod
     def from_snbt(cls, snbt : str, pos : int, elementType):
         value = []
-        try:
-            if snbt[pos] != "]":
-                while True:
-                    itemValue, pos = elementType.from_snbt(snbt, pos)
-                    value.append(itemValue)
-                    if snbt[pos] == ',':
-                        pos += 1
-                        continue
-                    elif snbt[pos] == ']':
-                        break
-                    else:
-                        raise ValueError(f'Missing "," or "]" at {pos}')
-        except IndexError:
-            raise ValueError(f'Missing "]" at {pos}')
+        if snbt[pos] != ']':
+            while True:
+                itemValue, pos = elementType.from_snbt(snbt, pos)
+                value.append(itemValue)
+                if snbt[pos] == ',':
+                    pos += 1
+                    continue
+                elif snbt[pos] == ']':
+                    break
+                else:
+                    raise ValueError(f'Missing "," or "]"  at {pos}')
         
         return cls(value), pos+1
 
     def insert(self, key, value):
         self.value = self[:key] + [value] + self[key:]
+
+    @classmethod
+    @property
+    def regex(cls):
+        return f'\\[{cls.prefix}'
     
     def sort(self, *, key=None, reverse=False):
         self.value.sort(key=key, reverse=reverse)
@@ -353,27 +355,10 @@ class Array(MutableSequence):
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
         
-        try:
-            assert snbt[pos] == '['
-        except (AssertionError, IndexError):
-            raise ValueError(f'Missing "[" at {pos}')
-        
-        try:
-            assert snbt[pos+1:pos+3] == cls.prefix
-        except (AssertionError, IndexError):
-            raise ValueError(f'Missing prefix for {cls} at {pos+1}-{pos+2} (expected {cls.prefix})')
-        
-        elementType = cls.elementType
-        pos += 3
-        
-        return super().from_snbt(snbt, pos, elementType)
-
-    @classmethod
-    @property
-    def regex(cls):
-        prefix = cls.prefix
-        elem = cls.elementType.regex
-        return f'\\[{prefix}({elem})?(?(1)(,{elem})*)\\]'
+        match = re.compile(cls.regex).match(snbt[pos])
+        if match is None:
+            raise ValueError(f'Missing "[" or {cls.prefix} at {pos} for {cls}')
+        return super().from_snbt(snbt, pos+3, cls.elementType)
 
 #---------------------------------------- Concrete Classes -----------------------------------------
 
@@ -387,7 +372,7 @@ class End(Base):
     valueType = None
     
     def __init__(self, value = None):
-        pass
+        return
     
     @classmethod
     def from_bytes(cls, value):
@@ -395,7 +380,10 @@ class End(Base):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        raise ValueError(f'No valid SNBT exists for {cls}')
+        if snbt[pos:] == '':
+            return cls()
+        else:
+            raise ValueError(f'Invalid snbt for {cls} (expected empty string)')
     
     def to_bytes(self):
         return b'\x00'
@@ -595,15 +583,17 @@ class List(MutableSequence):
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
-        try:
-            assert snbt[pos] == '['
-        except (AssertionError, IndexError):
-            raise ValueError(f'Missing "[" at {pos}')
         
+        match = re.compile(cls.regex).match(snbt[pos])
+        if match is None:
+            raise ValueError(f'Missing "[" or {cls.prefix} at {pos} for {cls}')
         pos += 1
-        elementType = type(from_snbt(snbt, pos)[0])
         
-        return super().from_snbt(snbt, pos, elementType)
+        elementType = type(from_snbt(snbt, pos)[0])
+        try:
+            return super().from_snbt(snbt, pos, elementType)
+        except AttributeError:
+            raise ValueError(f'Could not determine element type of {cls} at {pos}')
     
     def to_bytes(self):
         return Byte(self.elementID).to_bytes() + super().to_bytes()
@@ -648,24 +638,26 @@ class Compound(Base, collections.abc.MutableMapping):
             assert snbt[pos] == '{'
         except (AssertionError, IndexError):
             raise ValueError(f'Missing "{{" at {pos}!')
-    
         pos += 1
+        
+        regex = r'(?P<openQuote>")?(?P<name>(?(openQuote)[^"]|[^":,}])*)(?(openQuote)(?P<endQuote>")):'
+        pattern = re.compile(regex)
         value = {}
-        regex = re.compile(r'(?P<openQuote>")?(?P<name>(?(openQuote)[^"]|[^":,}])*)(?(openQuote)(?P<endQuote>")):')
-        try:
+        
+        if snbt[pos] != '}':
             while True:
-                match = regex.match(snbt[pos:]])
+                match = pattern.match(snbt, pos)
                 if match is not None:
                     value[match['name']], pos = from_snbt(snbt, match.end())
                     if snbt[pos] == ',':
                         pos += 1
                         continue
-                if snbt[pos] == '}':
-                    break
+                    elif snbt[pos] == '}':
+                        break
+                    else:
+                        raise ValueError(f'Missing "," or "}}"  at {pos}')
                 else:
-                    raise ValueError(f'Missing "," or "}}" at {pos} !')
-        except IndexError:
-            raise ValueError(f'Missing value for item "{itemName}" at {pos-len(itemName)}')
+                    raise ValueError(f'Invalid name at {pos}')
         
         return cls(value), pos+1
 
