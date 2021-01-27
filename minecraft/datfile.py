@@ -35,7 +35,7 @@ class DatFile(collections.abc.MutableMapping):
     def filePath(self):
         """Returns a clear error in case of invalid file operations"""
         if self._filePath is None:
-            raise ValueError(f'{repr(self)} has no folder !')
+            raise ValueError(f'No file path.')
         else:
             return self._filePath
     
