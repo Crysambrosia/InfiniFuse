@@ -37,12 +37,32 @@ class Base(ABC):
     """Determines priority for from_snbt
     Lowest goes first
     """
+    
+    @property
+    def bit_length(self):
+        """Returns the BIT length of this tag's value after encoding"""
+        return self.byte_length * 8
+    
+    @property
+    def byte_length(self):
+        return len(self.to_bytes())
 
     @classmethod
     @abstractmethod
+    def decode(cls, iterable):
+        """Decode a value from an iterable of byte NBT data"""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def encode(cls, value):
+        """Encode a value into byte NBT data"""
+        pass
+
+    @classmethod
     def from_bytes(cls, iterable):
         """Create a tag from an iterable of NBT data bytes"""
-        pass
+        return cls(cls.decode(iterable))
     
     @classmethod
     @abstractmethod
@@ -54,17 +74,10 @@ class Base(ABC):
         - <pos> is the character index following this tag's snbt
         """
         pass
-    
-    @classmethod
-    def check_snbt(cls, snbt):
-        """Check if provided SNBT is valid"""
-        if not re.compile(cls.regex).fullmatch(snbt):
-            raise ValueError(f'Invalid SNBT \'{snbt}\' for {cls}')
 
-    @abstractmethod
     def to_bytes(self):
         """Return NBT data bytearray from self"""
-        pass
+        return self.encode(self.value)
 
     @abstractmethod
     def to_snbt(self):
@@ -83,6 +96,15 @@ class Base(ABC):
     def valueType(value):
         """Convert value to the same type as this tag's .value"""
         pass
+    
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, newValue):
+        self.encode(newValue) #Raises an exception if newValue is incompatible
+        self._value = self.valueType(newValue)
 
     def __eq__(self, other):
         return self.value.__eq__(self.valueType(other))
@@ -108,10 +130,6 @@ class Value(Base):
     def __init__(self, value = None):
         value = 0 if value is None else value
         self.value = value
-
-    def bit_length(self):
-        """Returns the BIT length of this tag's value after encoding"""
-        return len(self._value) * 8
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
@@ -120,16 +138,13 @@ class Value(Base):
             return cls(match['value']), pos + match.end()
         except:
             raise ValueError(f'Invalid snbt for {cls} at {pos}')
-
-    def to_bytes(self):
-        return self._value
     
 util.make_wrappers(Value, coercedMethods = ['__add__', '__mod__', '__rmod__', '__mul__', '__rmul__'])
 
 class Number(Value):
     """Abstract Base Class for numerical tag types
 
-    Assignments to .value are automatically encoded and boundary checked
+    Assignments to .value are automatically checked for compatibility
     """
 
     fmt = None
@@ -139,24 +154,20 @@ class Number(Value):
     """valid SNBT suffixes"""
     
     @classmethod
-    def from_bytes(cls, iterable):
+    def decode(cls, iterable):
         byteValue = util.read_bytes(iterable, n = len(cls()))
-        return cls( struct.unpack(cls.fmt, byteValue)[0] )
+        return struct.unpack(cls.fmt, byteValue)[0]
+    
+    @classmethod
+    def encode(cls, value : int = 0):
+        return struct.pack(cls.fmt, cls.valueType(value))
     
     def to_snbt(self):
         return f'{self.value}' + ('' if self.suffixes is None else f'{self.suffixes[0]}')
 
-    @property
-    def value(self):
-        return struct.unpack(self.fmt, self._value)[0]
-
-    @value.setter
-    def value(self, newValue):
-        self._value = struct.pack(self.fmt, self.valueType(newValue))
-
     def __len__(self):
         """Returns the BYTE length of this tag's value after encoding"""
-        return len(self._value)
+        return self.byte_length
     
 util.make_wrappers( Number, 
     coercedMethods = [
@@ -268,16 +279,27 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
         self.value.append(self.elementType(value))
 
     @classmethod
-    def from_bytes(cls, iterable):
+    def decode(cls, iterable):
         iterator = iter(iterable)
         
-        if isinstance(cls.elementType, property):
-            elementType = Base.subtypes[ Byte.from_bytes(iterator) ]
-        else:
-            elementType = cls.elementType
-            
-        length = Int.from_bytes(iterator)
-        return cls([elementType.from_bytes(iterator) for _ in range(length)])
+        elementType = cls.elementType
+        if isinstance(elementType, property):
+            elementType = Base.subtypes[ Byte.decode(iterator) ]
+
+        length = Int.decode(iterator)
+        return [elementType.from_bytes(iterator) for _ in range(length)]
+    
+    @staticmethod
+    def encode(value = None):
+        value = [] if value is None else value
+        byteValue = Int.encode(len(value))
+        
+        for element in value:
+            byteValue += element.to_bytes()
+            if isinstance(element, Compound):
+                byteValue += End.encode()
+    
+        return byteValue
 
     @property
     def elementID(self):
@@ -321,16 +343,6 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
     def sort(self, *, key=None, reverse=False):
         self.value.sort(key=key, reverse=reverse)
     
-    def to_bytes(self):
-        encoded = Int(len(self)).to_bytes()
-        
-        for element in self:
-            encoded += element.to_bytes()
-            if isinstance(element, Compound):
-                encoded += End().to_bytes()
-    
-        return encoded
-    
     def to_snbt(self):
         return f'[{self.prefix}{",".join( [i.to_snbt() for i in self.value] )}]'
     
@@ -366,16 +378,20 @@ class End(Base):
     
     Ends a Compound, expect erratic behavior if inserted inside one.
     """
+    __slots__ = []
     ID = 0
     snbtPriority = 12
     valueType = None
     
     def __init__(self, value = None):
-        return
+        pass
     
     @classmethod
-    def from_bytes(cls, value):
-        return cls(value)
+    def decode(cls, iterable):
+        return
+    
+    def encode(value = None):
+        return b'\x00'
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
@@ -384,14 +400,12 @@ class End(Base):
         else:
             raise ValueError(f'Invalid snbt for {cls} (expected empty string)')
     
-    def to_bytes(self):
-        return b'\x00'
-    
     def to_snbt(self):
         return ''
 
 class Byte(Integer):
     """Int8 tag (0 to 255)"""
+    __slots__ = ['_value']
     ID = 1
     fmt = '>b'
     snbtPriority = 8
@@ -399,6 +413,7 @@ class Byte(Integer):
 
 class Short(Integer):
     """Int16 tag (-32,768 to 32,767)"""
+    __slots__ = ['_value']
     ID = 2
     fmt = '>h'
     snbtPriority = 9
@@ -406,12 +421,14 @@ class Short(Integer):
   
 class Int(Integer):
     """Int32 tag (-2,147,483,648 to 2,147,483,647)"""
+    __slots__ = ['_value']
     ID = 3
     fmt = '>i'
     snbtPriority = 11
 
 class Long(Integer):
     """Int64 tag (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)"""
+    __slots__ = ['_value']
     ID = 4
     fmt = '>q'
     snbtPriority = 10
@@ -419,6 +436,7 @@ class Long(Integer):
  
 class Float(Decimal):
     """Single precision float tag (32 bits)"""
+    __slots__ = ['_value']
     ID = 5
     fmt = '>f'
     regex = f'{Decimal.regex}(?P<suffix>[fF])'
@@ -427,6 +445,7 @@ class Float(Decimal):
 
 class Double(Decimal):
     """Double precision float tag (64 bits)"""
+    __slots__ = ['_value']
     ID = 6
     fmt = '>d'
     regex = f'{Decimal.regex}(?P<suffix>(?(dot)[dD]?|[dD]))'
@@ -438,6 +457,7 @@ class Byte_Array(MutableSequence):
     
     Contained tags have no name
     """
+    __slots__ = ['_value']
     ID = 7
     elementType = Byte
     prefix = 'B;'
@@ -448,17 +468,23 @@ class String(Value, Sequence):
     
     Payload : a Short for length, then a <length> bytes long UTF-8 string
     """
+    __slots__ = ['_value']
     ID = 8
     regex = r"""(?P<openQuote>['"])(?P<value>(?:(?!(?P=openQuote))[^\\]|\\.)*)(?P<endQuote>(?P=openQuote))"""
     snbtPriority = 5
     valueType = str
 
     @classmethod
-    def from_bytes(cls, iterable):
+    def decode(cls, iterable):
         iterator = iter(iterable)
-        byteLength = Short.from_bytes(iterator)
+        byteLength = Short.decode(iterator)
         byteValue = util.read_bytes(iterator, n = byteLength)
-        return cls( byteValue.decode(encoding='utf-8') )
+        return byteValue.decode(encoding='utf-8')
+    
+    @staticmethod
+    def encode(value : str = ''):
+        byteValue = str.encode( str(value) )
+        return Short.encode(len(byteValue)) + byteValue
     
     def isidentifier(self):
         return False
@@ -495,15 +521,6 @@ class String(Value, Sequence):
         # f-string does not allow for backslashes inside the {}, hence the workaround
         # I think this ban is stupid but I don't control python (yet ?)
         return '"{}"'.format(''.join([char if char != '"' else r'\"' for char in self]))
-
-    @property
-    def value(self):
-        return self._value[2:].decode(encoding='utf-8')
-
-    @value.setter
-    def value(self, newValue):
-        newValue = str.encode( self.valueType(newValue) )
-        self._value = Short(len(newValue)).to_bytes() + newValue
     
     def __str__(self):
         return self.value
@@ -556,7 +573,7 @@ class List(MutableSequence):
     Type checks any additions unless it is empty
     If empty, self.elementType will be End
     """
-
+    __slots__ = ['_value']
     ID = 9
     prefix = ''
     snbtPriority = 4
@@ -577,11 +594,15 @@ class List(MutableSequence):
         else:
             return End
     
-    def to_bytes(self):
-        return Byte(self.elementID).to_bytes() + super().to_bytes()
+    @classmethod
+    def encode(cls, value = None):
+        value = [] if value is None else value
+        ID = value[0].ID if len(value) > 0 else 0
+        return Byte.encode(ID) + super().encode(value)
     
 class Compound(Base, collections.abc.MutableMapping):
     """A Tag dictionary, containing other names tags of any type."""
+    __slots__ = ['_value']
     ID = 10
     snbtPriority = 0
     valueType = dict
@@ -593,25 +614,25 @@ class Compound(Base, collections.abc.MutableMapping):
                 raise ValueError(f'TAG.Compound can only contain other TAGs')
         self.value = value
     
-    @classmethod
-    def from_bytes(cls, iterable):
+    @staticmethod
+    def decode(iterable):
         iterator = iter(iterable)
         value = {}
         
         while True:
             try:
-                itemType = Base.subtypes[ Byte.from_bytes(iterator) ]
+                itemType = Base.subtypes[ Byte.decode(iterator) ]
             except StopIteration:
                 break
             
             if itemType == End:
                 break
 
-            itemName = String.from_bytes(iterator).value
+            itemName = String.decode(iterator)
             itemValue = itemType.from_bytes(iterator)
             value[itemName] = itemValue
         
-        return cls(value)
+        return value
     
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
@@ -643,19 +664,21 @@ class Compound(Base, collections.abc.MutableMapping):
         
         return cls(value), pos+1
 
-    def to_bytes(self):
-        encoded = bytearray()
+    @staticmethod
+    def encode(value = None):
+        value = {} if value is None else value
+        byteValue = bytearray()
         
-        for element in self:
+        for element in value:
         
-            encoded += Byte( self[element].ID ).to_bytes()
-            encoded += String(element).to_bytes()
-            encoded += self[element].to_bytes()
+            byteValue += Byte.encode(value[element].ID)
+            byteValue += String.encode(element)
+            byteValue += value[element].to_bytes()
             
-            if isinstance(self[element], Compound):
-                encoded += End().to_bytes()
+            if isinstance(value[element], Compound):
+                byteValue += End.encode()
             
-        return encoded
+        return byteValue
 
     def to_snbt(self):
 
@@ -691,6 +714,7 @@ class Int_Array(MutableSequence):
     
     Contained tags have no name
     """
+    __slots__ = ['_value']
     ID = 11
     elementType = Int
     prefix = 'I;'
@@ -701,6 +725,7 @@ class Long_Array(MutableSequence):
     
     Contained tags have no name
     """
+    __slots__ = ['_value']
     ID = 12
     elementType = Long
     prefix = 'L;'
