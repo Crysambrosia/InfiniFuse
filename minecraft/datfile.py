@@ -4,22 +4,27 @@ import minecraft.TAG as TAG
 import os
 import util
 
-class DatFile(collections.abc.MutableMapping):
+class DatFile(TAG.Compound):
     """Interface for .dat files"""
 
+    ID = None
+
     def __init__( self, 
-        value       : TAG.Compound = None, 
+        value       : dict = None, 
         compression : int = 3, 
         filePath    : str = None
     ):
         
-        self.value = TAG.Compound() if value is None else value
-        """NBT data as a TAG.Compound"""
+        self.value = {} if value is None else value
+        """NBT data"""
         
         self.compression = compression
         """Compression type of contained data"""
         
         self._filePath = filePath
+        if self._filePath is not None:
+            # Format filePath for repr to use only \\
+            self._filePath = ''.join([char if char != '/' else '\\' for char in filePath])
         """File path for writing"""
 
         self.closed = False
@@ -47,15 +52,11 @@ class DatFile(collections.abc.MutableMapping):
     def open(cls, filePath : str):
         """Open from direct file path"""
         
-        # Format file name for repr
-        filePath = ''.join([char if char != '/' else '\\' for char in filePath])
-        
         with open(filePath, mode='rb') as f:
-            data = f.read()
-        data, compression = decompress(data)
+            data, compression = decompress(f.read())
         
         return cls(
-            value = TAG.Compound.from_bytes(data), 
+            value = super().decode(data), 
             compression = compression, 
             filePath = filePath
         )
@@ -73,16 +74,3 @@ class DatFile(collections.abc.MutableMapping):
             return f'DatFile at {self.filePath}'
         except ValueError:
             return 'DatFile (no file path)'
-
-util.make_wrappers( DatFile, 
-    nonCoercedMethods = [
-        'keys',
-        'to_bytes',
-        '__delitem__', 
-        '__eq__', 
-        '__getitem__', 
-        '__iter__',
-        '__len__',
-        '__setitem__'
-    ]
-)
