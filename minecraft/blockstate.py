@@ -10,7 +10,10 @@ class BlockState(TAG.Compound):
     """
     ID = None
     
-    def __init__(self, name, properties = None):
+    def __init__( self, 
+        name : str = 'minecraft:air', 
+        properties : dict = None
+    ):
 
         self.value = { 'Name' : TAG.String(name), 'Properties' : TAG.Compound() }
         
@@ -36,15 +39,15 @@ class BlockState(TAG.Compound):
         if valid['type'] == 'bool':
             if value not in ['false', 'true']:
                 raise ValueError(
-                    f'''Invalid value {value} for property {key} of block {self["Name"]}
-                    (expected \'true\' or \'false\')
+                    f'''Invalid value {value} for property {key} of block {self['Name']}
+                    (expected 'true' or 'false')
                     '''
                 )
 
         elif valid['type'] == 'int':
             if value not in range(valid['min'], valid['max']):
                 raise ValueError(
-                    f'''Invalid value {value} for property {key} of block {self["Name"]} 
+                    f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected number between {valid['min']} and {valid['max']})
                     '''
                 )
@@ -52,8 +55,8 @@ class BlockState(TAG.Compound):
         elif valid['type'] == 'str':
             if value not in valid['values']:
                 raise ValueError(
-                    f'''Invalid value {value} for property {key} of block {self["Name"]} 
-                    (expected one of {valid['values']})
+                    f'''Invalid value {value} for property {key} of block {self['Name']} 
+                    (expected {'or'.join(valid['values'])}
                     '''
                 )
         
@@ -63,7 +66,7 @@ class BlockState(TAG.Compound):
     def validProperties(self):
         """A dict containing valid properties and their valid values for this block type"""
         
-        def load_from_parents(name):
+        def load_with_inheritance(name):
         
             namespace, _, block = name.partition(':')
             folder = os.path.dirname(__file__)
@@ -76,8 +79,8 @@ class BlockState(TAG.Compound):
                 data = json.load(f)
 
             for parent in data['parents']:
-                data['properties'].update(load_from_parents(parent))
+                data['properties'].update(load_with_inheritance(parent))
             
             return data['properties']
         
-        return load_from_parents(self['Name'])
+        return load_with_inheritance(self['Name'])

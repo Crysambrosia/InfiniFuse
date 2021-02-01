@@ -103,8 +103,9 @@ class Base(ABC):
 
     @value.setter
     def value(self, newValue):
+        newValue = self.valueType(newValue)
         self.encode(newValue) #Raises an exception if newValue is incompatible
-        self._value = self.valueType(newValue)
+        self._value = newValue
 
     def __eq__(self, other):
         return self.value.__eq__(self.valueType(other))
