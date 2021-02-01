@@ -70,37 +70,37 @@ class Chunk(TAG.Compound):
         """Get a specific block using chunk-relative coordinates"""
         
         if (not 0<=x<=15) or (not 0<=y<=255) or (not 0<=z<=15):
-            raise IndexError(f'Invalid block position inside chunk : {x} {y} {z}')
+            raise IndexError(f'Invalid chunk-relative block position : {x} {y} {z}')
 
-        # Find the section where the block is located
+        # Find the section where the block is located, make <y> relative to the section
         sectionID, y = divmod(y, 16)
         for section in self['']['Level']['Sections']:
             if section['Y'] == sectionID:
                 break
-        else:
+        else: # No Section == Empty Section
             return TAG.Compound({'Name':TAG.String('minecraft:air')})
         
-        # Find where the block is within the section
+        # Find palette index length
         try:
-            bitLen = max(4, ((len(section['Palette'])-1).bit_length())
-        except KeyError:
+            IDLen = max(4, (len(section['Palette'])-1).bit_length())
+        except KeyError: # No Palette == Empty Section
             return TAG.Compound({'Name':TAG.String('minecraft:air')})
         
-        # Read the bits and return them
-        blocksPerEntry = 64 // bitLen
+        # Find where the bits are
+        unitLen = section['BlockStates'][0].bit_length
+        IDsPerUnit = unitLen // IDLen
         block = y*16*16 + z*16 + x
-        index, subIndex = divmod(block, blocksPerEntry)
-        #print(index)
-        #print(section['BlockStates'])
-        lastBit = 64 - subIndex*bitLen
+        unitID, IDInsideUnit = divmod(block, IDsPerUnit)
+        IDLastBit = unitLen - (IDInsideUnit * IDLen)
         
-        blockStateID = util.get_bits(
-            num = section['BlockStates'][index].unsigned, 
-            start = lastBit - bitLen,
-            end = lastBit
+        # Read and return
+        ID = util.get_bits(
+            n = section['BlockStates'][unitID].unsigned, 
+            start = IDLastBit - IDLen,
+            end = IDLastBit
         )
         
-        return section['Palette'][blockStateID]
+        return section['Palette'][ID]
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
