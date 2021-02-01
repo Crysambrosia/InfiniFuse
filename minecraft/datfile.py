@@ -1,8 +1,5 @@
 from minecraft.compression import compress, decompress
-import collections.abc
 import minecraft.TAG as TAG
-import os
-import util
 
 class DatFile(TAG.Compound):
     """Interface for .dat files"""
