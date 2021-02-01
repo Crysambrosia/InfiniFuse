@@ -1,3 +1,7 @@
+def bits(n, length : int = 0):
+    """Return num as <length> bits"""
+    return bin(n).removeprefix('0b').rjust(length, '0')
+
 def read_bytes(iterable, n=0):
     """Read n bytes from the iterable and return them as a bytearray"""
 
@@ -15,11 +19,11 @@ def read_bytes(iterable, n=0):
     
     return value
     
-def get_bits(num, start, end, length=64):
-    """Like bits(num)[from:to] interpreted as int"""
+def get_bits(n, start, end, length=64):
+    """Read bits from <start> to <end> of a value, return as an int"""
     mask = 2**(end-start)-1
     shift = length - (end-start) - start
-    return (num & (mask << shift)) >> shift
+    return (n & (mask << shift)) >> shift
 
 def reverse(n):
     """Reverse the bitwise endianness of n"""
