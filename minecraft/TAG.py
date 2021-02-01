@@ -11,18 +11,18 @@ import util
 
 def from_snbt(snbt : str, pos : int = 0):
         """Create a TAG from SNBT when type is unknown"""
-        print(f'Starting tests at {pos}')
+        #print(f'Starting tests at {pos}')
         for i in sorted(Base.subtypes, key = lambda i : i.snbtPriority):
             try:
-                print(f'Trying {i} at {pos}')
+                #print(f'Trying {i} at {pos}')
                 value, pos =  i.from_snbt(snbt, pos)
             except ValueError:
-                print(f'Failed {i} at {pos}')
+                #print(f'Failed {i} at {pos}')
                 continue
             else:
-                print(f'--- Success with {i} at {pos} ---')
+                #print(f'--- Success with {i} at {pos} ---')
                 return value, pos
-        print(f'Everything failed at {pos}')
+        #print(f'Everything failed at {pos}')
         raise ValueError(f'Invalid snbt at {pos}')
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
@@ -214,7 +214,7 @@ class Integer(Number):
     @property
     def unsigned(self):
         """The unsigned equivalent of this tag's value"""
-        return struct.unpack(self.fmt.upper(), self._value)[0]
+        return struct.unpack(self.fmt.upper(), self.to_bytes())[0]
     
     @unsigned.setter
     def unsigned(self):
@@ -310,7 +310,7 @@ class MutableSequence(Sequence, collections.abc.MutableSequence):
     
         match = re.compile(f'\\[{cls.prefix}').match(snbt, pos)
         if match is None:
-            raise ValueError(f'Missing "[" at {pos} for {cls}')
+            raise ValueError(f'Missing "[{cls.prefix}" at {pos} for {cls}')
         
         pos = match.end()
         value = []
