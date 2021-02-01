@@ -1,4 +1,5 @@
 from .compression import compress, decompress
+from .blockstate import BlockState
 import collections.abc
 import minecraft.TAG as TAG
 import mmap
@@ -63,7 +64,6 @@ class Chunk(TAG.Compound):
     
         appdata = os.environ['APPDATA']
         folder = (f'{appdata}\\.minecraft\\saves\\{world}\\region')
-        
         return cls.open(chunkX, chunkZ, folder)
 
     def get_block(self, x : int, y : int , z : int):
@@ -100,7 +100,7 @@ class Chunk(TAG.Compound):
             end = IDLastBit
         )
         
-        return section['Palette'][ID]
+        return BlockState(section['Palette'][ID])
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
