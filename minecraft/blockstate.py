@@ -10,34 +10,41 @@ class BlockState(TAG.Compound):
     """
     ID = None
     
-    def __init__( self, 
-        name : str = 'minecraft:air', 
-        properties : dict = None
-    ):
+    def __init__(self, value : dict = None):
+        value = {'Name':TAG.String(), 'Properties' : TAG.Compound()} if value is None else value
+        self.value = value
 
-        self.value = { 'Name' : TAG.String(name), 'Properties' : TAG.Compound() }
+    @classmethod
+    def create_validated(cls, name : str, properties : dict = None):
+        """Create a blockstate, validating all given properties and setting others to default"""
+    
+        newBlockState = cls({ 'Name' : TAG.String(name), 'Properties' : TAG.Compound() })
+        properties = {} if properties is None else properties 
         
-        # Set all properties given to the constructor
-        properties = {} if properties is None else properties
+        # Set properties given to the constructor
         for key, value in properties.items():
-            self.set_property(key, value)
+            newBlockState.set_property(key, value)
+        
+        # Set missing properties to default
+        for key in newBlockState.validProperties:
+            if key not in properties:
+                newBlockState.set_property(key)
+        
+        return newBlockState
 
-        # Set missing properties to their default values
-        for key, value in self.validProperties.items():
-            if key not in self['Properties']:
-                self.set_property(key, value['default'])
-
-    def set_property(self, key, value):
+    def set_property(self, key, value = ''):
         """Edit a property with type and value checking"""
-        value = TAG.String(value)
         
         if key not in self.validProperties:
             raise KeyError(f'Invalid property {key} for block {self["Name"]}')
-        else:
-            valid = self.validProperties[key]
+        
+        valid = self.validProperties[key]
+        value = TAG.String(value)
         
         if valid['type'] == 'bool':
-            if value not in ['false', 'true']:
+            if value == '':
+                value = 'false'
+            elif value not in ['false', 'true']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']}
                     (expected 'true' or 'false')
@@ -45,7 +52,9 @@ class BlockState(TAG.Compound):
                 )
 
         elif valid['type'] == 'int':
-            if value not in range(valid['min'], valid['max']):
+            if value == '':
+                value = valid['min']
+            elif value not in range(valid['min'], valid['max']):
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected number between {valid['min']} and {valid['max']})
@@ -53,7 +62,9 @@ class BlockState(TAG.Compound):
                 )
 
         elif valid['type'] == 'str':
-            if value not in valid['values']:
+            if value == '':
+                value = valid['values'][0]
+            elif value not in valid['values']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected {'or'.join(valid['values'])}
@@ -63,24 +74,22 @@ class BlockState(TAG.Compound):
         self['Properties'][key] = value
 
     @property
+    def filePath(self):
+        """File defining this block's properties"""
+        namespace, _, block = self['Name'].partition(':')
+        folder = os.path.dirname(__file__)
+        return os.path.join(folder, 'blockstates', str(namespace), f'{block}.json')
+
+    @property
     def validProperties(self):
-        """A dict containing valid properties and their valid values for this block type"""
+        """A dict containing valid properties and values for this block type"""
+        if not os.path.exists(self.filePath):
+            raise FileNotFoundError(f'Unknown block {namespace}:{block}')
         
-        def load_with_inheritance(name):
-        
-            namespace, _, block = name.partition(':')
-            folder = os.path.dirname(__file__)
-            filePath = os.path.join(folder, 'blockstates', str(namespace), f'{block}.json')
-            
-            if not os.path.exists(filePath):
-                raise FileNotFoundError(f'Unknown block {name}')
-
-            with open(filePath) as f:
-                data = json.load(f)
-
-            for parent in data['parents']:
-                data['properties'].update(load_with_inheritance(parent))
-            
-            return data['properties']
-        
-        return load_with_inheritance(self['Name'])
+        with open(self.filePath, mode = 'r') as f:
+            return json.load(f)
+    
+    @validProperties.setter
+    def validProperties(self, newValue):
+        with open(self.filePath, mode='w') as f:
+            json.dump(newValue, f)
