@@ -6,21 +6,24 @@ import os
 import time
 import util
 
-class Chunk(collections.abc.MutableMapping):
+class Chunk(TAG.Compound):
     """Chunk data model and interface
     
     Chunks are opened and saved directly, abstracting .mca files
     """
+    __slots__ = ['closed', 'folder', 'timestamp','_value']
+    ID = None
+    
     def __init__(self,
         timestamp : int = None,
-        value : TAG.Compound = None,
+        value : dict = None,
         folder : str = None
     ):
 
         self.timestamp = int(time.time()) if timestamp is None else timestamp
         """Timestamp of last edit in epoch seconds"""
 
-        self.value = TAG.Compound() if value is None else value
+        self.value = {} if value is None else value
         """NBT data as a TAG.Compound"""
 
         self.folder = folder
@@ -42,10 +45,6 @@ class Chunk(collections.abc.MutableMapping):
             self.write()
         self.closed = True
 
-    def encode(self):
-        """Encode this chunk's payload"""
-        return self.payload.encode()
-
     @property
     def file(self):
         """The file where this chunk will be saved
@@ -53,7 +52,7 @@ class Chunk(collections.abc.MutableMapping):
         May not exist yet
         """
         if self.folder is None:
-            raise ValueError(f'{repr(self)} has no folder !')
+            raise ValueError(f'No folder.')
         
         regionX = self['']['Level']['xPos'] // 32
         regionZ = self['']['Level']['zPos'] // 32
@@ -83,7 +82,7 @@ class Chunk(collections.abc.MutableMapping):
         
         # Find where the block is within the section
         try:
-            bitLen = max(4, len(section['Palette']).bit_length())
+            bitLen = max(4, ((len(section['Palette'])-1).bit_length())
         except KeyError:
             return TAG.Compound({'Name':TAG.String('minecraft:air')})
         
@@ -91,9 +90,9 @@ class Chunk(collections.abc.MutableMapping):
         blocksPerEntry = 64 // bitLen
         block = y*16*16 + z*16 + x
         index, subIndex = divmod(block, blocksPerEntry)
-        print(index)
-        print(section['BlockStates'])
-        lastBit = 64 - subIndex*bitLen 
+        #print(index)
+        #print(section['BlockStates'])
+        lastBit = 64 - subIndex*bitLen
         
         blockStateID = util.get_bits(
             num = section['BlockStates'][index].unsigned, 
@@ -128,7 +127,7 @@ class Chunk(collections.abc.MutableMapping):
 
         return cls(
             timestamp = timestamp, 
-            value = TAG.Compound.from_bytes( decompress(chunkData, compression)[0] ), 
+            value = super().decode( decompress(chunkData, compression)[0] ), 
             folder = folder
         )
 
@@ -150,7 +149,7 @@ class Chunk(collections.abc.MutableMapping):
         # Create missing file
         if not os.path.exists(self.file):
             with open(self.file, mode='w+b') as MCAFile:
-                MCAFile.write(b'\x00' * 8192)
+                MCAFile.truncate(8192)
         
         with open(self.file, mode='r+b') as MCAFile:
             with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_WRITE) as MCA:
@@ -201,15 +200,3 @@ class Chunk(collections.abc.MutableMapping):
                 MCA[offset:offset+4] = length.to_bytes(4, 'big')
                 MCA[offset+4] = compression
                 MCA[offset+5 : offset + length + 4] = chunkData
-
-util.make_wrappers( Chunk, 
-    nonCoercedMethods = [
-        'to_bytes', 
-        '__delitem__', 
-        '__eq__', 
-        '__getitem__',
-        '__iter__',
-        '__len__',
-        '__setitem__'
-    ]
-)
