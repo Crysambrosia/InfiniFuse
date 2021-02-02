@@ -1,9 +1,0 @@
-{
-    "parents" : [
-        "base:redstone_torch",
-        "base:wall_torch"
-    ],
-    "properties" : {
-        
-    }
-}
