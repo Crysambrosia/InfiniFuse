@@ -84,7 +84,7 @@ class Chunk(TAG.Compound):
         except KeyError:
             return None
         
-        # Find where the BlockState ID's bits are
+        # Find BlockState ID's bit indexes
         unitLen = self['']['Level']['Sections'][section]['BlockStates'][0].bit_length
         IDsPerUnit = unitLen // IDLen
         block = y*16*16 + z*16 + x
@@ -105,12 +105,13 @@ class Chunk(TAG.Compound):
         """Return BlockState at chunk-relative coordinates"""
         
         indexes = self.block_indexes(x,y,z)
+        
         if indexes is None:
             return BlockState()
-        else:
-            section, unit, start, end = indexes
         
-        ID = util.get_bits(
+        section, unit, start, end = indexes
+        
+        ID = util.bit_value(
             n = self['']['Level']['Sections'][section]['BlockStates'][unit].unsigned, 
             start = start,
             end = end
@@ -150,10 +151,9 @@ class Chunk(TAG.Compound):
     def set_block(self, x : int, y : int, z : int, block : BlockState):
         """Set the block at x y z to <block>, after checking that <block> is a valid BlockState"""
         block = BlockState.create_valid(block)
-        check_coordinates(x,y,z)
-        sectionID, y = self.get_section_ID(y)
+        indexes = self.block_indexes(x,y,z)
         
-        if sectionID is None:
+        if indexes is None:
             raise NotImplementedError('Cannot create sections yet !')
         
         section = self['']['Level']['Sections'][sectionID]

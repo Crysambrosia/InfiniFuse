@@ -19,7 +19,7 @@ def read_bytes(iterable, n=0):
     
     return value
     
-def get_bits(n, start, end, length=64):
+def bit_value(n, start, end, length=64):
     """Read bits from <start> to <end> of a value, return as an int"""
     mask = 2**(end-start)-1
     shift = length - (end-start) - start
