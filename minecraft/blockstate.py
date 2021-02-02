@@ -11,7 +11,12 @@ class BlockState(TAG.Compound):
     ID = None
     
     def __init__(self, value : dict = None):
-        value = {'Name':TAG.String(), 'Properties' : TAG.Compound()} if value is None else value
+    
+        value = {} if value is None else value
+        
+        if 'Name' not in value:
+            value['Name'] = TAG.String('minecraft:air')
+        
         self.value = value
 
     @classmethod
@@ -71,6 +76,9 @@ class BlockState(TAG.Compound):
                     '''
                 )
         
+        if 'Properties' not in self:
+            self['Properties'] = TAG.Compound()
+        
         self['Properties'][key] = value
 
     @property
@@ -84,12 +92,7 @@ class BlockState(TAG.Compound):
     def validProperties(self):
         """A dict containing valid properties and values for this block type"""
         if not os.path.exists(self.filePath):
-            raise FileNotFoundError(f'Unknown block {namespace}:{block}')
+            raise FileNotFoundError(f'Unknown block {self["Name"]}')
         
         with open(self.filePath, mode = 'r') as f:
             return json.load(f)
-    
-    @validProperties.setter
-    def validProperties(self, newValue):
-        with open(self.filePath, mode='w') as f:
-            json.dump(newValue, f)
