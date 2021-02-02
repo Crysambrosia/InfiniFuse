@@ -1,0 +1,9 @@
+{
+    "half": {
+        "type": "str",
+        "values": [
+            "upper",
+            "lower"
+        ]
+    }
+}

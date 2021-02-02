@@ -1,9 +1,0 @@
-{
-    "parents" : ["abstract:power"],
-    "properties" : {
-        "east" : ["none", "side", "up"],
-        "north" : ["none", "side", "up"],
-        "south" : ["none", "side", "up"],
-        "west" : ["none", "side", "up"]
-    }
-}

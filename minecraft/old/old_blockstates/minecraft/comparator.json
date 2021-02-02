@@ -1,6 +1,0 @@
-{
-    "parents" : ["abstract:facing_4", "abstract:powered"],
-    "properties" : {
-        "mode" : ["compare", "subtract"]
-    }
-}

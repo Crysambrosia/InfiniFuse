@@ -1,0 +1,8 @@
+{
+    "waterlogged": {
+        "type": "bool"
+    },
+    "hanging": {
+        "type": "bool"
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "has_bottle_0": {
+        "type": "bool"
+    },
+    "has_bottle_1": {
+        "type": "bool"
+    },
+    "has_bottle_2": {
+        "type": "bool"
+    }
+}

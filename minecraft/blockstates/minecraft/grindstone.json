@@ -1,0 +1,19 @@
+{
+    "face": {
+        "type": "str",
+        "values": [
+            "floor",
+            "wall",
+            "ceiling"
+        ]
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    }
+}

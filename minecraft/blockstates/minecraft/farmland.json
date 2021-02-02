@@ -1,0 +1,7 @@
+{
+    "moisture": {
+        "type": "int",
+        "min": "0",
+        "max": "7"
+    }
+}

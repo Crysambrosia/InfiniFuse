@@ -1,0 +1,10 @@
+{
+    "waterlogged": {
+        "type": "bool"
+    },
+    "rotation": {
+        "type": "int",
+        "min": "0",
+        "max": "9"
+    }
+}

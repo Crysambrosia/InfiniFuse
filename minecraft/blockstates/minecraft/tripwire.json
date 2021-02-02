@@ -1,0 +1,23 @@
+{
+    "disarmed": {
+        "type": "bool"
+    },
+    "east": {
+        "type": "bool"
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "south": {
+        "type": "bool"
+    },
+    "north": {
+        "type": "bool"
+    },
+    "attached": {
+        "type": "bool"
+    },
+    "west": {
+        "type": "bool"
+    }
+}

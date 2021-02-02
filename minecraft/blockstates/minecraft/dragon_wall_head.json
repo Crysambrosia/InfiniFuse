@@ -1,0 +1,11 @@
+{
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    }
+}

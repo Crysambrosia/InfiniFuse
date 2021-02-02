@@ -1,7 +1,0 @@
-{
-    "parents" : ["abstract:facing_4", "abstract:waterlogged"],
-    "properties" : {
-        "lit" : ["true", "false"],
-        "signal_fire" : ["false", "true"]
-    }
-}

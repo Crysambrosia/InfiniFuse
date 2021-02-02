@@ -1,8 +1,0 @@
-{
-    "parents" : [],
-    "properties" : {
-        "has_bottle_0" : ["false", "true"],
-        "has_bottle_1" : ["false", "true"],
-        "has_bottle_2" : ["false", "true"]
-    }
-}

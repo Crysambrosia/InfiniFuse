@@ -1,0 +1,13 @@
+{
+    "waterlogged": {
+        "type": "bool"
+    },
+    "axis": {
+        "type": "str",
+        "values": [
+            "x",
+            "y",
+            "z"
+        ]
+    }
+}

@@ -1,6 +1,0 @@
-{
-    "parents" : ["abstract:rotation", "abstract:waterlogged"],
-    "properties" : {
-        
-    }
-}

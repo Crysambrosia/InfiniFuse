@@ -1,0 +1,10 @@
+{
+    "waterlogged": {
+        "type": "bool"
+    },
+    "pickles": {
+        "type": "int",
+        "min": "1",
+        "max": "4"
+    }
+}

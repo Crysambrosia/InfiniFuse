@@ -1,0 +1,21 @@
+{
+    "part": {
+        "type": "str",
+        "values": [
+            "head",
+            "foot"
+        ]
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    },
+    "occupied": {
+        "type": "bool"
+    }
+}

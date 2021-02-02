@@ -1,0 +1,17 @@
+{
+    "east": {
+        "type": "bool"
+    },
+    "waterlogged": {
+        "type": "bool"
+    },
+    "south": {
+        "type": "bool"
+    },
+    "north": {
+        "type": "bool"
+    },
+    "west": {
+        "type": "bool"
+    }
+}

@@ -1,6 +1,0 @@
-{
-    "parents" : ["minecraft:redstone_torch", "abstract:facing_4"],
-    "properties" : {
-        
-    }
-}

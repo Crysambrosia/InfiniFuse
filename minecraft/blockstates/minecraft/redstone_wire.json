@@ -1,0 +1,39 @@
+{
+    "east": {
+        "type": "str",
+        "values": [
+            "up",
+            "side",
+            "none"
+        ]
+    },
+    "south": {
+        "type": "str",
+        "values": [
+            "up",
+            "side",
+            "none"
+        ]
+    },
+    "north": {
+        "type": "str",
+        "values": [
+            "up",
+            "side",
+            "none"
+        ]
+    },
+    "west": {
+        "type": "str",
+        "values": [
+            "none",
+            "up",
+            "side"
+        ]
+    },
+    "power": {
+        "type": "int",
+        "min": "0",
+        "max": "9"
+    }
+}

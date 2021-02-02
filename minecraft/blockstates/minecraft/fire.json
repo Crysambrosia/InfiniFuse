@@ -1,0 +1,22 @@
+{
+    "east": {
+        "type": "bool"
+    },
+    "south": {
+        "type": "bool"
+    },
+    "north": {
+        "type": "bool"
+    },
+    "west": {
+        "type": "bool"
+    },
+    "up": {
+        "type": "bool"
+    },
+    "age": {
+        "type": "int",
+        "min": "0",
+        "max": "9"
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "mode": {
+        "type": "str",
+        "values": [
+            "save",
+            "load",
+            "corner",
+            "data"
+        ]
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    },
+    "age": {
+        "type": "int",
+        "min": "0",
+        "max": "2"
+    }
+}

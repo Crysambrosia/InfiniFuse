@@ -1,0 +1,16 @@
+{
+    "powered": {
+        "type": "bool"
+    },
+    "shape": {
+        "type": "str",
+        "values": [
+            "ascending_south",
+            "north_south",
+            "east_west",
+            "ascending_east",
+            "ascending_west",
+            "ascending_north"
+        ]
+    }
+}

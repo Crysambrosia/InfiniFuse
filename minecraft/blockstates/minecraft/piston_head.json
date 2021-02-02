@@ -1,0 +1,23 @@
+{
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "east",
+            "south",
+            "west",
+            "up",
+            "down"
+        ]
+    },
+    "short": {
+        "type": "bool"
+    },
+    "type": {
+        "type": "str",
+        "values": [
+            "normal",
+            "sticky"
+        ]
+    }
+}

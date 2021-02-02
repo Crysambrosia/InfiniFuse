@@ -1,0 +1,16 @@
+{
+    "triggered": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "east",
+            "south",
+            "west",
+            "up",
+            "down"
+        ]
+    }
+}

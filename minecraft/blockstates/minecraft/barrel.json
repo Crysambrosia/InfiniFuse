@@ -1,0 +1,16 @@
+{
+    "facing": {
+        "type": "str",
+        "values": [
+            "up",
+            "down",
+            "north",
+            "east",
+            "south",
+            "west"
+        ]
+    },
+    "open": {
+        "type": "bool"
+    }
+}

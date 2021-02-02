@@ -1,0 +1,31 @@
+{
+    "hinge": {
+        "type": "str",
+        "values": [
+            "left",
+            "right"
+        ]
+    },
+    "half": {
+        "type": "str",
+        "values": [
+            "upper",
+            "lower"
+        ]
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "west",
+            "east",
+            "north",
+            "south"
+        ]
+    },
+    "open": {
+        "type": "bool"
+    }
+}

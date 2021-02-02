@@ -1,0 +1,22 @@
+{
+    "face": {
+        "type": "str",
+        "values": [
+            "ceiling",
+            "floor",
+            "wall"
+        ]
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "west",
+            "east",
+            "north",
+            "south"
+        ]
+    }
+}

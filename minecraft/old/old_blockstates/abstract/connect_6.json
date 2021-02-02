@@ -1,7 +1,0 @@
-{
-    "parents" : ["abstract:connect_4"],
-    "properties" : {
-        "up" : ["false", "true"],
-        "down" : ["false", "true"]
-    }
-}

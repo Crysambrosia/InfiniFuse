@@ -1,7 +1,0 @@
-{
-    "parents" : ["abstract:facing_4"],
-    "properties" : {
-        "occupied" : ["false", "true"],
-        "part" : ["foot", "head"]
-    }
-}

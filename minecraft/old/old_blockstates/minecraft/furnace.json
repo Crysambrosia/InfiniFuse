@@ -1,6 +1,0 @@
-{
-    "parents" : ["abstract:facing_4"],
-    "properties" : {
-        "lit" : ["false", "true"]
-    }
-}

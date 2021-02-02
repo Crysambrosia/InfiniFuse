@@ -1,6 +1,0 @@
-{
-    "parents" : ["abstract:power"],
-    "properties" : {
-        "inverted" : ["false", "true"]
-    }
-}

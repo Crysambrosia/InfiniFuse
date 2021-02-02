@@ -1,0 +1,10 @@
+{
+    "distance": {
+        "type": "int",
+        "min": "1",
+        "max": "7"
+    },
+    "persistent": {
+        "type": "bool"
+    }
+}

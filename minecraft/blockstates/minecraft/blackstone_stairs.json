@@ -1,0 +1,31 @@
+{
+    "half": {
+        "type": "str",
+        "values": [
+            "top",
+            "bottom"
+        ]
+    },
+    "waterlogged": {
+        "type": "bool"
+    },
+    "shape": {
+        "type": "str",
+        "values": [
+            "inner_left",
+            "inner_right",
+            "outer_left",
+            "outer_right",
+            "straight"
+        ]
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    }
+}

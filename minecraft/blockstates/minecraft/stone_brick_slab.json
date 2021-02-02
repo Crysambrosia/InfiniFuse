@@ -1,0 +1,13 @@
+{
+    "waterlogged": {
+        "type": "bool"
+    },
+    "type": {
+        "type": "str",
+        "values": [
+            "bottom",
+            "double",
+            "top"
+        ]
+    }
+}

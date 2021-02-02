@@ -1,0 +1,20 @@
+{
+    "east": {
+        "type": "bool"
+    },
+    "south": {
+        "type": "bool"
+    },
+    "north": {
+        "type": "bool"
+    },
+    "west": {
+        "type": "bool"
+    },
+    "up": {
+        "type": "bool"
+    },
+    "down": {
+        "type": "bool"
+    }
+}

@@ -1,0 +1,40 @@
+{
+    "east": {
+        "type": "str",
+        "values": [
+            "low",
+            "tall",
+            "none"
+        ]
+    },
+    "waterlogged": {
+        "type": "bool"
+    },
+    "south": {
+        "type": "str",
+        "values": [
+            "none",
+            "low",
+            "tall"
+        ]
+    },
+    "north": {
+        "type": "str",
+        "values": [
+            "none",
+            "low",
+            "tall"
+        ]
+    },
+    "west": {
+        "type": "str",
+        "values": [
+            "none",
+            "low",
+            "tall"
+        ]
+    },
+    "up": {
+        "type": "bool"
+    }
+}

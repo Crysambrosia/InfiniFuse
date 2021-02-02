@@ -1,0 +1,17 @@
+{
+    "powered": {
+        "type": "bool"
+    },
+    "attached": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "delay": {
+        "type": "int",
+        "min": "1",
+        "max": "4"
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "east",
+            "north",
+            "south",
+            "west"
+        ]
+    },
+    "locked": {
+        "type": "bool"
+    }
+}

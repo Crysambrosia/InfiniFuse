@@ -1,0 +1,23 @@
+{
+    "attachment": {
+        "type": "str",
+        "values": [
+            "floor",
+            "ceiling",
+            "single_wall",
+            "double_wall"
+        ]
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "facing": {
+        "type": "str",
+        "values": [
+            "north",
+            "south",
+            "west",
+            "east"
+        ]
+    }
+}

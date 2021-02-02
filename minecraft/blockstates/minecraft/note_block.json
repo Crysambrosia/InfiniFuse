@@ -1,0 +1,31 @@
+{
+    "note": {
+        "type": "int",
+        "min": "0",
+        "max": "9"
+    },
+    "powered": {
+        "type": "bool"
+    },
+    "instrument": {
+        "type": "str",
+        "values": [
+            "harp",
+            "snare",
+            "hat",
+            "flute",
+            "chime",
+            "iron_xylophone",
+            "bit",
+            "pling",
+            "cow_bell",
+            "bell",
+            "basedrum",
+            "banjo",
+            "xylophone",
+            "bass",
+            "didgeridoo",
+            "guitar"
+        ]
+    }
+}
