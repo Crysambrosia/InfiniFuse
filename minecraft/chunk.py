@@ -78,13 +78,13 @@ class Chunk(TAG.Compound):
             if section['Y'] == sectionID:
                 break
         else: # No Section == Empty Section
-            return TAG.Compound({'Name':TAG.String('minecraft:air')})
+            return BlockState()
         
         # Find palette index length
         try:
             IDLen = max(4, (len(section['Palette'])-1).bit_length())
         except KeyError: # No Palette == Empty Section
-            return TAG.Compound({'Name':TAG.String('minecraft:air')})
+            return BlockState()
         
         # Find where the bits are
         unitLen = section['BlockStates'][0].bit_length
@@ -106,10 +106,10 @@ class Chunk(TAG.Compound):
     def open(cls, chunkX : int, chunkZ : int, folder : str):
         """Open from folder"""
         
-        regionX = chunkX//32
-        regionZ = chunkZ//32
+        regionX, chunkX = divmod(chunkX,32)
+        regionZ, chunkZ = divmod(chunkZ,32)
         fileName = (f'{folder}\\r.{regionX}.{regionZ}.mca')
-        header = (4 * (chunkX + chunkZ*32)) % 1024
+        header = 4 * (chunkX + chunkZ*32)
         
         with open(fileName, mode='r+b') as MCAFile:
             with mmap.mmap(MCAFile.fileno(), length=0, access=mmap.ACCESS_READ) as MCA:
