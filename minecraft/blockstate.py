@@ -20,7 +20,7 @@ class BlockState(TAG.Compound):
         self.value = value
 
     @classmethod
-    def create_validated(cls, name : str, properties : dict = None):
+    def create_valid(cls, name : str, properties : dict = None):
         """Create a blockstate, validating all given properties and setting others to default"""
     
         newBlockState = cls({ 'Name' : TAG.String(name), 'Properties' : TAG.Compound() })

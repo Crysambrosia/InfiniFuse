@@ -59,6 +59,41 @@ class Chunk(TAG.Compound):
         regionZ = self['']['Level']['zPos'] // 32
         return f'{self.folder}\\r.{regionX}.{regionZ}.mca'
 
+    def block_indexes(self, x, y, z):
+        """Return memory indexes for given coordinates inside this chunk"""
+    
+        # Check Coordinates
+        if not 0<=x<=15:
+            raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be between 0 and 15)')
+        elif not 0<=y<=255:
+            raise ValueError(f'Invalid chunk-relative y coordinate {y} (must be between 0 and 255)')
+        elif not 0<=z<=15:
+            raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be between 0 and 15)')
+            
+        # Find section containing coordinates
+        sectionY, y = divmod(y, 16)
+        for section, value in enumerate(self['']['Level']['Sections']):
+            if value['Y'] == sectionY:
+                break
+        else:
+            return None
+            
+        # Find how long BlockState IDs are in this section
+        try:
+            IDLen = max(4, (len(self['']['Level']['Sections'][section]['Palette'])-1).bit_length())
+        except KeyError:
+            return None
+        
+        # Find where the BlockState ID's bits are
+        unitLen = self['']['Level']['Sections'][section]['BlockStates'][0].bit_length
+        IDsPerUnit = unitLen // IDLen
+        block = y*16*16 + z*16 + x
+        unit, IDoffset = divmod(block, IDsPerUnit)
+        end = unitLen - (IDoffset * IDLen)
+        start = end - IDLen
+        
+        return section, unit, start, end
+
     @classmethod
     def from_world(cls, chunkX : int, chunkZ : int, world : str):
     
@@ -67,40 +102,21 @@ class Chunk(TAG.Compound):
         return cls.open(chunkX, chunkZ, folder)
 
     def get_block(self, x : int, y : int , z : int):
-        """Get a specific block using chunk-relative coordinates"""
+        """Return BlockState at chunk-relative coordinates"""
         
-        if (not 0<=x<=15) or (not 0<=y<=255) or (not 0<=z<=15):
-            raise IndexError(f'Invalid chunk-relative block position : {x} {y} {z}')
-
-        # Find the section where the block is located, make <y> relative to the section
-        sectionID, y = divmod(y, 16)
-        for section in self['']['Level']['Sections']:
-            if section['Y'] == sectionID:
-                break
-        else: # No Section == Empty Section
+        indexes = self.block_indexes(x,y,z)
+        if indexes is None:
             return BlockState()
+        else:
+            section, unit, start, end = indexes
         
-        # Find palette index length
-        try:
-            IDLen = max(4, (len(section['Palette'])-1).bit_length())
-        except KeyError: # No Palette == Empty Section
-            return BlockState()
-        
-        # Find where the bits are
-        unitLen = section['BlockStates'][0].bit_length
-        IDsPerUnit = unitLen // IDLen
-        block = y*16*16 + z*16 + x
-        unitID, IDInsideUnit = divmod(block, IDsPerUnit)
-        IDLastBit = unitLen - (IDInsideUnit * IDLen)
-        
-        # Read and return
         ID = util.get_bits(
-            n = section['BlockStates'][unitID].unsigned, 
-            start = IDLastBit - IDLen,
-            end = IDLastBit
+            n = self['']['Level']['Sections'][section]['BlockStates'][unit].unsigned, 
+            start = start,
+            end = end
         )
         
-        return BlockState(section['Palette'][ID])
+        return BlockState(self['']['Level']['Sections'][section]['Palette'][ID])
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
@@ -131,9 +147,18 @@ class Chunk(TAG.Compound):
             folder = folder
         )
 
-    def set_block(self, x : int, y : int, z : int, block : TAG.Compound):
-        """Set the block at x y z to be block"""
-        pass # Implement a list of possible blockstates first
+    def set_block(self, x : int, y : int, z : int, block : BlockState):
+        """Set the block at x y z to <block>, after checking that <block> is a valid BlockState"""
+        block = BlockState.create_valid(block)
+        check_coordinates(x,y,z)
+        sectionID, y = self.get_section_ID(y)
+        
+        if sectionID is None:
+            raise NotImplementedError('Cannot create sections yet !')
+        
+        section = self['']['Level']['Sections'][sectionID]
+        if block in section['Palette']:
+            pass #WIP
     
     def write(self):
         """Save chunk changes to file.
