@@ -18,68 +18,36 @@ class BlockState(TAG.Compound):
             value['Name'] = TAG.String('minecraft:air')
         
         self.value = value
-
-    @classmethod
-    def create_valid(cls, name : str, properties : dict = None):
-        """Create a blockstate, validating all given properties and setting others to default"""
-    
-        newBlockState = cls({ 'Name' : TAG.String(name), 'Properties' : TAG.Compound() })
-        properties = {} if properties is None else properties 
-        
-        # Set properties given to the constructor
-        for key, value in properties.items():
-            newBlockState.set_property(key, value)
-        
-        # Set missing properties to default
-        for key in newBlockState.validProperties:
-            if key not in properties:
-                newBlockState.set_property(key)
-        
-        return newBlockState
-
-    def set_property(self, key, value = ''):
-        """Edit a property with type and value checking"""
+ 
+    def check_property(self, key, value = None):
+        """Check if property <key> exists, and if <value> is valid for it if provided"""
         
         if key not in self.validProperties:
             raise KeyError(f'Invalid property {key} for block {self["Name"]}')
         
-        valid = self.validProperties[key]
-        value = TAG.String(value)
-        
-        if valid['type'] == 'bool':
-            if value == '':
-                value = 'false'
-            elif value not in ['false', 'true']:
+        if value is not None:
+            valid = self.validProperties[key]
+            
+            if valid['type'] == 'bool' and value not in ['false', 'true']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']}
                     (expected 'true' or 'false')
                     '''
                 )
 
-        elif valid['type'] == 'int':
-            if value == '':
-                value = valid['min']
-            elif value not in range(valid['min'], valid['max']):
+            elif valid['type'] == 'int' and value not in range(valid['min'], valid['max']):
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected number between {valid['min']} and {valid['max']})
                     '''
                 )
 
-        elif valid['type'] == 'str':
-            if value == '':
-                value = valid['values'][0]
-            elif value not in valid['values']:
+            elif valid['type'] == 'str' and value not in valid['values']:
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected {'or'.join(valid['values'])}
                     '''
                 )
-        
-        if 'Properties' not in self:
-            self['Properties'] = TAG.Compound()
-        
-        self['Properties'][key] = value
 
     @property
     def filePath(self):
@@ -87,6 +55,38 @@ class BlockState(TAG.Compound):
         namespace, _, block = self['Name'].partition(':')
         folder = os.path.dirname(__file__)
         return os.path.join(folder, 'blockstates', str(namespace), f'{block}.json')
+
+    def reset_property(self, key):
+    
+        self.check_property(key)
+        valid = self.validProperties[key]
+        
+        if valid['type'] == 'bool':
+            value = 'false'
+        elif valid['type'] == 'int':
+            value = valid['min']
+        elif valid['type'] == 'str':
+            value = valid['values'][0]
+        
+        self.set_property(key, value)
+
+    def set_property(self, key, value):
+        """Edit a property with type and value checking"""
+        
+        self.check_property(key, value)
+        
+        if 'Properties' not in self:
+            self['Properties'] = TAG.Compound()
+        
+        self['Properties'][key] = value
+
+    def validate(self):
+        """Raise an error if the state of properties is invalid"""
+        for key in self.validProperties:
+            try:
+                self.check_property(key, self['Properties'][key])
+            except KeyError:
+                raise KeyError(f'Property {key} is not set')
 
     @property
     def validProperties(self):
