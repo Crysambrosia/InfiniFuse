@@ -22,6 +22,7 @@ def read_bytes(iterable, n=0):
 def get_bits(n, start, end, length : int = None):
     """Read bits [<start>:<end>] of <n> and return them
     <length> forces <n> into that bit length"""
+    n = int(n)
     mask, shift = mask_and_shift(start, end, length = n.bit_length() if length is None else length)
     return (n & mask) >> shift
 
@@ -38,5 +39,6 @@ def reverse(n):
 def set_bits(n, start, end, newValue, length : int = None):
     """Change bits [<start>:<end>] of <n> to <newValue> and return <n>
     <length> forces <n> into that bit length"""
+    n = int(n)
     mask, shift = mask_and_shift(start, end, length = n.bit_length() if length is None else length)
     return (n & ~mask) | (newValue << shift)
