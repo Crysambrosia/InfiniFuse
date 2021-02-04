@@ -76,13 +76,13 @@ class Chunk(TAG.Compound):
             if value['Y'] == sectionY:
                 break
         else:
-            return None
+            raise ValueError(f'Section {sectionY} doesn\'t exist')
             
         # Find how long BlockState IDs are in this section
         try:
             IDLen = max(4, (len(self['']['Level']['Sections'][section]['Palette'])-1).bit_length())
         except KeyError:
-            return None
+            raise ValueError(f'Section {sectionY} has no Palette')
         
         # Find BlockState ID's bit indexes
         unitLen = self['']['Level']['Sections'][section]['BlockStates'][0].bit_length
@@ -104,14 +104,12 @@ class Chunk(TAG.Compound):
     def get_block(self, x : int, y : int , z : int):
         """Return BlockState at chunk-relative coordinates"""
         
-        indexes = self.block_indexes(x,y,z)
-        
-        if indexes is None:
+        try:
+            section, unit, start, end = self.block_indexes(x,y,z)
+        except ValueError:
             return BlockState()
         
-        section, unit, start, end = indexes
-        
-        ID = util.bit_value(
+        ID = util.get_bits(
             n = self['']['Level']['Sections'][section]['BlockStates'][unit].unsigned, 
             start = start,
             end = end
@@ -151,12 +149,12 @@ class Chunk(TAG.Compound):
     def set_block(self, x : int, y : int, z : int, block : BlockState):
         """Set the block at x y z to <block>, after checking that <block> is a valid BlockState"""
         block = BlockState.create_valid(block)
-        indexes = self.block_indexes(x,y,z)
-        
-        if indexes is None:
+        try:
+            section, unit, start, end = self.block_indexes(x,y,z)
+        except ValueError:
             raise NotImplementedError('Cannot create sections yet !')
         
-        section = self['']['Level']['Sections'][sectionID]
+        section = self['']['Level']['Sections'][section]
         if block in section['Palette']:
             pass #WIP
     
