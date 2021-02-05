@@ -258,8 +258,8 @@ class Chunk(TAG.Compound):
         start = offset * blockLen
         end = start + blockLen
         
-        section['BlockStates'][unit] = util.set_bits(
-            n = section['BlockStates'][unit],
+        section['BlockStates'][unit].unsigned = util.set_bits(
+            n = section['BlockStates'][unit].unsigned,
             start = start,
             end = end, 
             value = section['Palette'].index(newBlock)

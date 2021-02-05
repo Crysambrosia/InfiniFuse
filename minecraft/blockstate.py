@@ -50,7 +50,7 @@ class BlockState(TAG.Compound):
                     '''
                 )
 
-            elif valid['type'] == 'int' and value not in range(valid['min'], valid['max']):
+            elif valid['type'] == 'int' and int(value) not in range(int(valid['min']), int(valid['max'])):
                 raise ValueError(
                     f'''Invalid value {value} for property {key} of block {self['Name']} 
                     (expected number between {valid['min']} and {valid['max']})

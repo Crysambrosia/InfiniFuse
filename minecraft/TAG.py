@@ -132,6 +132,12 @@ class Value(Base):
         value = 0 if value is None else value
         self.value = value
     
+    def __int__(self):
+        return int(self.value)
+    
+    def __float__(self):
+        return float(self.value)
+    
     @classmethod
     def from_snbt(cls, snbt : str, pos : int = 0):
         match = re.compile(cls.regex).match(snbt[pos:])
@@ -191,8 +197,6 @@ util.make_wrappers( Number,
         'as_integer_ratio',
         '__bool__',
         '__divmod__',
-        '__float__',
-        '__int__',
         '__radd__',
         '__rdivmod__',
         '__rfloordiv__',
@@ -220,6 +224,7 @@ class Integer(Number):
     @unsigned.setter
     def unsigned(self):
         self._value = struct.pack(self.fmt.upper(), self.valueType(newValue))
+        #WIP
 
 util.make_wrappers( Integer,
     coercedMethods = [
