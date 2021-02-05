@@ -693,16 +693,20 @@ class Compound(Base, collections.abc.MutableMapping):
         return f'{{{",".join(pairs)}}}'
     
     def __setitem__(self, key, value):
-        """Replace self[key] with value.
+        """Replace self[key] with <value>
         
-        Value must type-compatible with self[key]
+        <value> must type-compatible with self[key] if it exists
         """
-        try:
+        
+        if key in self:
             if isinstance(self[key], List) and len(self[key]) > 0:
                 value = [self[key].elementType(i) for i in value]
             value = type(self[key])(value)
-        except KeyError:
-            pass
+        
+        try:
+            assert isinstance(value, Base)
+        except AssertionError:
+            raise ValueError('TAGs can only contain other tags !')
     
         self.value[key] = value
     
