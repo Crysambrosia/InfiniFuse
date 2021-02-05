@@ -88,8 +88,8 @@ class Chunk(TAG.Compound):
         unitLen = self['']['Level']['Sections'][section]['BlockStates'][0].bit_length
         blocksPerUnit = unitLen // blockLen
         unit, offset = divmod(y*16*16 + z*16 + x, blocksPerUnit)
-        start = offset * IDLen
-        end = start + IDLen
+        start = offset * blockLen
+        end = start + blockLen
         
         return section, unit, start, end
 
@@ -193,40 +193,79 @@ class Chunk(TAG.Compound):
             folder = folder
         )
 
-    def set_block(self, x : int, y : int, z : int, block : BlockState):
-        """Set the block at x y z to <block>, after checking that <block> is a valid BlockState"""
-        block.validate()
-        try:
-            section, unit, start, end, unitLen = self.block_indexes(x,y,z)
-        except ValueError:
-            raise NotImplementedError('Cannot create sections yet !')
+    def set_block(self, x : int, y : int, z : int, newBlock : BlockState):
+        """Set the block at x y z to <block>, after checking that <newBlock> is a valid BlockState"""
         
-        if block not in self['']['Level']['Sections'][section]['Palette']:
+        # Check that block is valid
+        newBlock.validate()
         
-            oldBlockLen = max(4, len(self['']['Level']['Sections'][section]['Palette']).bit_length())
-            newBlockLen = max(4,(len(self['']['Level']['Sections'][section]['Palette']) + 1).bit_length())
+        # Check Coordinates
+        if not 0<=x<=15:
+            raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be between 0 and 15)')
+        elif not 0<=y<=255:
+            raise ValueError(f'Invalid chunk-relative y coordinate {y} (must be between 0 and 255)')
+        elif not 0<=z<=15:
+            raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be between 0 and 15)')
             
-            if newBitLen == oldBitLen:
-                self['']['Level']['Sections'][section]['Palette'].append(block)
-            else:
-                
-                blocksPerUnit = unitLen // oldBlockLen
-                for unit in section['BlockStates']:
-                    for block in range(blocksPerUnit):
-                        
-                        end = unitLen - blockLen * block
-                        start = end - blockLen
-                        
-                        ID = util.get_bits(unit,start,end,unitLen)
-                        yield BlockState(section['Palette'][ID]) #WIP
-                    
+        # Find section containing coordinates
+        sectionY, y = divmod(y, 16)
+        for sectionID, section in enumerate(self['']['Level']['Sections']):
+            if section['Y'] == sectionY:
+                break
+        else:
+            raise ValueError(f'Section {sectionY} doesn\'t exist')
         
-        self['']['Level']['Sections'][section]['BlockStates'][unit] = util.set_bits(
-            n = self['']['Level']['Sections'][section]['BlockStates'][unit],
+        unitLen = section['BlockStates'][0].bit_length
+        blockLen = max(4, (len(section['Palette']) - 1).bit_length())
+        
+        if newBlock not in section['Palette']:
+        
+            section['Palette'].append(newBlock)
+            newBlockLen = max(4, (len(section['Palette']) - 1).bit_length())
+            
+            if newBlockLen != blockLen:
+                # Read all palette IDs
+                blocks = []
+                for i, unit in enumerate(section['BlockStates']):
+                    for block in range(unitLen // blockLen):
+                    
+                        start = block * blockLen
+                        end = start + blockLen
+                        blocks.append(util.get_bits(unit,start,end))
+                
+                unitType = section['BlockStates'].elementType
+                section['BlockStates'] = section['BlockStates'].__class__() # Reset the list
+                
+                blocks = iter(blocks)
+                keepGoing = True
+                while keepGoing:
+                    unit = unitType()
+                    for block in range(unitLen // newBlockLen):
+                    
+                        start = block * newBlockLen
+                        end = start + newBlockLen
+                        try:
+                            unit = util.set_bits(unit, start, end, next(blocks))
+                        except StopIteration:
+                            keepGoing = False
+                            break
+                    
+                    section['BlockStates'].append(unit)
+                blockLen = newBlockLen
+        
+        blocksPerUnit = unitLen // blockLen
+        unit, offset = divmod(y*16*16 + z*16 + x, blocksPerUnit)
+        start = offset * blockLen
+        end = start + blockLen
+        
+        section['BlockStates'][unit] = util.set_bits(
+            n = section['BlockStates'][unit],
             start = start,
             end = end, 
-            value = self['']['Level']['Sections'][section]['Palette'].index(block)
+            value = section['Palette'].index(newBlock)
         )
+        
+        self['']['Level']['Sections'][sectionID] = section
     
     def write(self):
         """Save chunk changes to file.

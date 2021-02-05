@@ -102,8 +102,9 @@ class BlockState(TAG.Compound):
 
     def validate(self):
         """Raise an error if the state of properties is invalid"""
-        for key, value in self['Properties'].items():
-            self.check_property(key, value)
+        if 'Properties' in self:
+            for key, value in self['Properties'].items():
+                self.check_property(key, value)
         for key in self.validProperties:
             if key not in self['Properties']:
                 raise KeyError(f'Property {key} is not set')
