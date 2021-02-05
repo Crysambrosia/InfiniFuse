@@ -12,7 +12,7 @@ class Chunk(TAG.Compound):
     
     Chunks are opened and saved directly, abstracting .mca files
     """
-    __slots__ = ['closed', 'folder', 'timestamp','_value']
+    __slots__ = ['closed', 'folder', 'timestamp', '_blocks', '_value']
     ID = None
     
     def __init__(self,
@@ -80,19 +80,18 @@ class Chunk(TAG.Compound):
             
         # Find how long BlockState IDs are in this section
         try:
-            IDLen = max(4, (len(self['']['Level']['Sections'][section]['Palette'])-1).bit_length())
+            blockLen = max(4, (len(self['']['Level']['Sections'][section]['Palette'])-1).bit_length())
         except KeyError:
             raise ValueError(f'Section {sectionY} has no Palette')
         
         # Find BlockState ID's bit indexes
         unitLen = self['']['Level']['Sections'][section]['BlockStates'][0].bit_length
-        IDsPerUnit = unitLen // IDLen
-        block = y*16*16 + z*16 + x
-        unit, IDoffset = divmod(block, IDsPerUnit)
-        end = unitLen - (IDoffset * IDLen)
-        start = end - IDLen
+        blocksPerUnit = unitLen // blockLen
+        unit, offset = divmod(y*16*16 + z*16 + x, blocksPerUnit)
+        start = offset * IDLen
+        end = start + IDLen
         
-        return section, unit, start, end, unitLen
+        return section, unit, start, end
 
     @classmethod
     def from_world(cls, chunkX : int, chunkZ : int, world : str):
@@ -105,15 +104,14 @@ class Chunk(TAG.Compound):
         """Return BlockState at chunk-relative coordinates"""
         
         try:
-            section, unit, start, end, unitLen = self.block_indexes(x,y,z)
+            section, unit, start, end = self.block_indexes(x,y,z)
         except ValueError:
             return BlockState()
         
         ID = util.get_bits(
             n = self['']['Level']['Sections'][section]['BlockStates'][unit].unsigned, 
             start = start,
-            end = end,
-            length = unitLen
+            end = end
         )
         
         return BlockState(self['']['Level']['Sections'][section]['Palette'][ID])
@@ -164,7 +162,7 @@ class Chunk(TAG.Compound):
                     y.append(z)
                     z = []
             sections.append(y)
-        self._blockCache = sections
+        self._blocks = sections
 
     @classmethod
     def open(cls, chunkX : int, chunkZ : int, folder : str):
@@ -203,17 +201,32 @@ class Chunk(TAG.Compound):
         except ValueError:
             raise NotImplementedError('Cannot create sections yet !')
         
-        if block in self['']['Level']['Sections'][section]['Palette']:
+        if block not in self['']['Level']['Sections'][section]['Palette']:
+        
+            oldBlockLen = max(4, len(self['']['Level']['Sections'][section]['Palette']).bit_length())
+            newBlockLen = max(4,(len(self['']['Level']['Sections'][section]['Palette']) + 1).bit_length())
             
-            self['']['Level']['Sections'][section]['BlockStates'][unit] = util.set_bits(
-                n = self['']['Level']['Sections'][section]['BlockStates'][unit],
-                start = start,
-                end = end, 
-                newValue = self['']['Level']['Sections'][section]['Palette'].index(block),
-                length = unitLen
-            )
-        else:
-            pass
+            if newBitLen == oldBitLen:
+                self['']['Level']['Sections'][section]['Palette'].append(block)
+            else:
+                
+                blocksPerUnit = unitLen // oldBlockLen
+                for unit in section['BlockStates']:
+                    for block in range(blocksPerUnit):
+                        
+                        end = unitLen - blockLen * block
+                        start = end - blockLen
+                        
+                        ID = util.get_bits(unit,start,end,unitLen)
+                        yield BlockState(section['Palette'][ID]) #WIP
+                    
+        
+        self['']['Level']['Sections'][section]['BlockStates'][unit] = util.set_bits(
+            n = self['']['Level']['Sections'][section]['BlockStates'][unit],
+            start = start,
+            end = end, 
+            value = self['']['Level']['Sections'][section]['Palette'].index(block)
+        )
     
     def write(self):
         """Save chunk changes to file.
