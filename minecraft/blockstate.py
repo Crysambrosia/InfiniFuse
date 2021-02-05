@@ -8,16 +8,31 @@ class BlockState(TAG.Compound):
     This does NOT contain coordinates.
     Chunks, and Worlds by extension, are responsible for coordinates.
     """
+    __slots__ = ['_value']
     ID = None
     
     def __init__(self, value : dict = None):
+        """Create a blockstate, checking given properties for correctness"""
+        
+        value = {} if value is None else value
+        self._value = value
     
+    @classmethod
+    def create_valid(cls, value : dict = None):
+        """Create a BlockState if <value> is a valid representation of one"""
         value = {} if value is None else value
         
         if 'Name' not in value:
             value['Name'] = TAG.String('minecraft:air')
         
-        self.value = value
+        block = cls(value)
+        
+        for key in block.validProperties:
+            if 'Properties' not in block or key not in block['Properties']:
+                block.reset_property(key)
+        
+        block.validate()
+        return block
  
     def check_property(self, key, value = None):
         """Check if property <key> exists, and if <value> is valid for it if provided"""
@@ -56,6 +71,11 @@ class BlockState(TAG.Compound):
         folder = os.path.dirname(__file__)
         return os.path.join(folder, 'blockstates', str(namespace), f'{block}.json')
 
+    def reset(self):
+        """Resets all properties"""
+        for key in self.validProperties:
+            self.reset_property(key)
+
     def reset_property(self, key):
     
         self.check_property(key)
@@ -78,14 +98,14 @@ class BlockState(TAG.Compound):
         if 'Properties' not in self:
             self['Properties'] = TAG.Compound()
         
-        self['Properties'][key] = value
+        self['Properties'][key] = TAG.String(value)
 
     def validate(self):
         """Raise an error if the state of properties is invalid"""
+        for key, value in self['Properties'].items():
+            self.check_property(key, value)
         for key in self.validProperties:
-            try:
-                self.check_property(key, self['Properties'][key])
-            except KeyError:
+            if key not in self['Properties']:
                 raise KeyError(f'Property {key} is not set')
 
     @property
