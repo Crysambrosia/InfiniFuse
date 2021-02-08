@@ -222,9 +222,9 @@ class Integer(Number):
         return struct.unpack(self.fmt.upper(), self.to_bytes())[0]
     
     @unsigned.setter
-    def unsigned(self):
-        self._value = struct.pack(self.fmt.upper(), self.valueType(newValue))
-        #WIP
+    def unsigned(self, newValue):
+        newValue = struct.pack(self.fmt.upper(), self.valueType(newValue))
+        self._value = self.decode(newValue)
 
 util.make_wrappers( Integer,
     coercedMethods = [
