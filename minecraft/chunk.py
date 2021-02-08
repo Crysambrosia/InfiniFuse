@@ -41,6 +41,35 @@ class Chunk(TAG.Compound):
         timestamp = time.asctime( time.localtime(self.timestamp) )
         return (f'Chunk at {xPos},{zPos} (Last edited {timestamp})')
 
+    def __delitem__(self, key):
+        """Delete a block if <key> is a 3-tuple, otherwise default to super"""
+        if isinstance(key, tuple) and len(key) == 3:
+            try:
+                self.set_block(x = key[0], y= key[1], z = key[2], newBlock = BlockState.create_valid())
+                return
+            except ValueError:
+                pass
+        super().__delitem__(key)
+
+    def __getitem__(self, key):
+        """Return a block if <key> is a 3-tuple, otherwise default to super"""
+        if isinstance(key, tuple) and len(key) == 3:
+            try:
+                return self.get_block(x = key[0], y = key[1], z = key[2])
+            except ValueError:
+                pass
+        return super().__getitem__(key)
+    
+    def __setitem__(self, key, value):
+        """Set block if <key> is a 3-tuple, otherwise default to super"""
+        if isinstance(key, tuple) and len(key) == 3:
+            try:
+                self.set_block(x = key[0], y = key[1], z = key[2], newBlock = value )
+                return
+            except ValueError:
+                pass
+        super().__setitem__(key, value)
+
     def close(self, save : bool = False):
         """Close file, save changes if save = True"""
         if (not self.closed) and save:
@@ -70,7 +99,7 @@ class Chunk(TAG.Compound):
         try:
             blockLen = max(4, (len(section['Palette']) - 1).bit_length())
         except KeyError:
-            raise ValueError(f'Section {sectionY} has no Palette')
+            raise KeyError(f'Section {sectionY} has no Palette')
         
         unitLen = section['BlockStates'].elementType().bit_length # Works even if the list is empty
         blocksPerUnit = unitLen // blockLen
@@ -98,7 +127,7 @@ class Chunk(TAG.Compound):
             if section['Y'] == sectionY:
                 break
         else:
-            raise ValueError(f'Section {sectionY} doesn\'t exist')
+            raise KeyError(f'Section {sectionY} doesn\'t exist')
         
         blockID = y*16*16 + z*16 + x
         
@@ -157,7 +186,7 @@ class Chunk(TAG.Compound):
     def set_block(self, x : int, y : int, z : int, newBlock : BlockState):
         """Set the block at x y z to <block>, after checking that <newBlock> is a valid BlockState"""
         
-        newBlock.validate()
+        newBlock = BlockState.create_valid(newBlock)
         section, blockID = self.find_section(x, y, z)
         
         if newBlock not in section['Palette']:
