@@ -15,7 +15,7 @@ class BlockState(TAG.Compound):
         """Create a blockstate, checking given properties for correctness"""
         
         value = {} if value is None else value
-        self._value = value
+        self.value = value
     
     @classmethod
     def create_valid(cls, value : dict = None):
