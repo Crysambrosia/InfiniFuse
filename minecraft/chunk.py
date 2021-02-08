@@ -150,7 +150,7 @@ class Chunk(TAG.Compound):
 
         return cls(
             timestamp = timestamp, 
-            value = super().decode( decompress(chunkData, compression)[0] ), 
+            value = cls.decode( decompress(chunkData, compression)[0] ), 
             folder = folder
         )
 
