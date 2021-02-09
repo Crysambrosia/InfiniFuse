@@ -34,13 +34,6 @@ class Chunk(TAG.Compound):
         self.closed = False
         """Whether this chunk is still open"""
 
-    def __repr__(self):
-        """Shows chunk coordinates and formatted timestamp"""
-        xPos = str( self['']['Level']['xPos'] )
-        zPos = str( self['']['Level']['zPos'] )
-        timestamp = time.asctime( time.localtime(self.timestamp) )
-        return (f'Chunk at {xPos},{zPos} (Last edited {timestamp})')
-
     def __delitem__(self, key):
         """Delete a block if <key> is a 3-tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
@@ -59,6 +52,13 @@ class Chunk(TAG.Compound):
             except ValueError:
                 pass
         return super().__getitem__(key)
+    
+    def __repr__(self):
+        """Shows chunk coordinates and formatted timestamp"""
+        xPos = str( self['']['Level']['xPos'] )
+        zPos = str( self['']['Level']['zPos'] )
+        timestamp = time.asctime( time.localtime(self.timestamp) )
+        return (f'Chunk at {xPos},{zPos} (Last edited {timestamp})')
     
     def __setitem__(self, key, value):
         """Set block if <key> is a 3-tuple, otherwise default to super"""
