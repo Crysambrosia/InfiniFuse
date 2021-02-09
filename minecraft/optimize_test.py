@@ -21,9 +21,9 @@ for i in os.listdir(regionDir):
     newMca.optimize()
     endTime = time.time()
     totalTime += endTime - startTime
-
-    print(f'{datetime.datetime.now()} Checking {newFile} for corruption...')
+    print(f'{datetime.datetime.now()} Reloading {newFile} from disk...')
     newMca.load_all_chunks() 
+    print(f'{datetime.datetime.now()} Checking {newFile} for corruption...')
     # Reload all chunks to make sure error checking is done on disk copies and not cache
     for x in range(32):
         for z in range(32):
