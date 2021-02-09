@@ -90,7 +90,10 @@ class McaFile():
     def load_all_chunks(self):
         """Load all chunks into self._chunkCache"""
         for chunkID in range(1024):
-            self.load_chunk(chunkID)
+            try:
+                self.load_chunk(chunkID)
+            except FileNotFoundError:
+                pass
 
     def load_chunk(self, chunkID : int):
         """Load chunk at <chunkID> into self._chunkCache"""
