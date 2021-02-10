@@ -59,3 +59,4 @@ for i in os.listdir(regionDir):
 totalPercent = round((totalSaved / totalOldSize) * 100, 1)
 averageSaved = totalSaved/totalFiles
 print(f'{datetime.datetime.now()} Saved {totalSaved} bytes in total, or {totalPercent}% (average {averageSaved} bytes) in {totalTime} seconds')
+# 2021-02-10 15:08:55.858671 Saved 92700672 bytes in total, or 5.0% (average 243308.8503937008 bytes) in 28709.62095117569 seconds
