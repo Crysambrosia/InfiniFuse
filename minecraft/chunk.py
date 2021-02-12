@@ -29,20 +29,20 @@ class Chunk(TAG.Compound):
     def __delitem__(self, key):
         """Delete a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple):
-            blockID = self.cache_index(*key)
-            self._cache[blockID] = BlockState.create_valid()
+            cacheID = self.cache_index(*key)
+            self._cache[cacheID] = BlockState.create_valid()
         else:
             super().__delitem__(key)
 
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple):
-            blockID = self.cache_index(*key)
+            cacheID = self.cache_index(*key)
             
-            if blockID not in self._cache:
-                self.load_block(blockID)
+            if cacheID not in self._cache:
+                self.load_block(cacheID)
             
-            return self._cache[blockID] 
+            return self._cache[cacheID] 
         else:
             return super().__getitem__(key)
     
@@ -55,9 +55,9 @@ class Chunk(TAG.Compound):
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple):
-            blockID = self.cache_index(*key)
+            cacheID = self.cache_index(*key)
             value = BlockState.create_valid(value)
-            self._cache[blockID] = value
+            self._cache[cacheID] = value
         else:
             super().__setitem__(key, value)
     
@@ -100,19 +100,19 @@ class Chunk(TAG.Compound):
         return unit, start, end
 
     @staticmethod
-    def find_section(blockID):
-        """Return index of section containing block <blockID>, index of block <blockID> inside section"""
+    def find_section(cacheID):
+        """Return block and section indexes of cached block <cacheID>"""
         
-        if not 0 <= blockID <= 65535:
-            raise KeyError(f'Invalid block index {block} (must be 0-65535)')
+        if not 0 <= cacheID <= 65535:
+            raise KeyError(f'Invalid cache index {block} (must be 0-65535)')
         
-        sectionID, blockID = divmod(blockID, 4096)
+        sectionID, blockID = divmod(cacheID, 4096)
         return sectionID, blockID
 
-    def load_block(self, blockID : int):
-        """Load BlockState at <blockID> to self._cache"""
+    def load_block(self, cacheID : int):
+        """Load BlockState <cacheID> to self._cache"""
         
-        sectionID, blockID = self.find_section(blockID)
+        sectionID, blockID = self.find_section(cacheID)
         
         block = BlockState.create_valid()
         
@@ -131,21 +131,21 @@ class Chunk(TAG.Compound):
                     block = BlockState(section['Palette'][paletteID])
                 break
         
-        self._cache[blockID] = block
+        self._cache[cacheID] = block
 
     def save(self):
         """Save all blocks in self._cache"""
-        for blockID in self._cache:
-            self.save_block(blockID)
+        for i in self._cache:
+            self.save_block(i)
 
-    def save_block(self, blockID : int):
-        """Save block at <blockID> of <sectionID> to self.value"""
+    def save_block(self, cacheID : int):
+        """Save block at <cacheID> of <sectionID> to self.value"""
         
-        if blockID not in self._cache:
+        if cacheID not in self._cache:
             return
-        newBlock = self._cache[blockID]
+        newBlock = self._cache[cacheID]
         
-        sectionID, blockID = self.find_section(blockID)
+        sectionID, blockID = self.find_section(cacheID)
         
         for section in self['']['Level']['Sections']:
             if section['Y'] == sectionID:

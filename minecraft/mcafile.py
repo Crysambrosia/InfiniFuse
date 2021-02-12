@@ -32,12 +32,12 @@ class McaFile():
         if not isinstance(key, tuple):
             raise KeyError(f'Key must be x and z coordinates of chunk, not {key}')
             
-        chunkID = self.cache_index(*key)
+        cacheID = self.cache_index(*key)
         
-        if chunkID not in self._cache:
-            self.load_chunk(chunkID)
+        if cacheID not in self._cache:
+            self.load_chunk(cacheID)
         
-        return self._cache[chunkID]
+        return self._cache[cacheID]
     
     def __repr__(self):
         try:
@@ -52,8 +52,8 @@ class McaFile():
         if not isinstance(value, Chunk):
             raise ValueError(f'<value> must be a Chunk, not a {type(value)}')
         
-        chunkID = self.cache_index(*key)
-        self._cache[chunkID] = value
+        cacheID = self.cache_index(*key)
+        self._cache[cacheID] = value
     
     @staticmethod
     def cache_index(x : int, z : int):
@@ -100,23 +100,23 @@ class McaFile():
     
     def load_all_chunks(self):
         """Load all chunks into self._cache"""
-        for chunkID in range(1024):
-            if chunkID not in self._cache:
+        for cacheID in range(1024):
+            if cacheID not in self._cache:
                 try:
-                    self.load_chunk(chunkID)
+                    self.load_chunk(cacheID)
                 except FileNotFoundError:
                     pass
 
-    def load_chunk(self, chunkID : int):
-        """Load chunk at <chunkID> into self._cache"""
+    def load_chunk(self, cacheID : int):
+        """Load chunk at <cacheID> into self._cache"""
         
         if self.closed:
             raise ValueError('I/O operation on closed file.')
         
-        if not 0 <= chunkID <= 1023:
-            raise IndexError(f'Invalid ChunkID {chunkID} (must be 0-1023)')
+        if not 0 <= cacheID <= 1023:
+            raise IndexError(f'Invalid cacheID {cacheID} (must be 0-1023)')
     
-        header = chunkID * 4
+        header = cacheID * 4
         
         with open(self.file, mode = 'r+b') as f:
             with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as fmap:
@@ -131,7 +131,7 @@ class McaFile():
                 else:
                     raise FileNotFoundError(f'Chunk doesn\'t exist ({offset},{sectorCount})')
         
-        self._cache[chunkID] = Chunk.from_bytes(decompress(chunkData, compression)[0])
+        self._cache[cacheID] = Chunk.from_bytes(decompress(chunkData, compression)[0])
     
     @classmethod
     def open(cls, filePath):
@@ -151,30 +151,30 @@ class McaFile():
     
     def save(self):
         """Save all chunks from self._cache"""
-        for chunkID in self._cache:
-            self.save_chunk(chunkID)
+        for i in self._cache:
+            self.save_chunk(i)
     
-    def save_chunk(self, chunkID : int):
-        """Save chunk at <chunkID> to file at self.file"""
+    def save_chunk(self, cacheID : int):
+        """Save chunk at <cacheID> to file at self.file"""
         
         if self.closed:
             raise ValueError('I/O operation on closed file.')
         
-        if not 0 <= chunkID <= 1023:
-            raise IndexError(f'Invalid ChunkID {chunkID} (must be 0-1023)')
+        if not 0 <= cacheID <= 1023:
+            raise IndexError(f'Invalid cache index {cacheID} (must be 0-1023)')
         
-        if chunkID not in self._cache:
+        if cacheID not in self._cache:
             return
         
-        self._cache[chunkID].save()
-        chunk = self._cache[chunkID]
+        self._cache[cacheID].save()
+        chunk = self._cache[cacheID]
         
         # Create missing file
         if not os.path.exists(self.file):
             with open(self.file, mode='w+b') as f:
                 f.truncate(8192)
         
-        header = chunkID * 4
+        header = cacheID * 4
         
         with open(self.file, mode='r+b') as f:
             with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_WRITE) as fmap:
