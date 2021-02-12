@@ -10,49 +10,57 @@ import time
 class McaFile():
     """Interface for .mca files"""
     
-    def __init__(self, folder : str, x : int, z : int):
+    def __init__(self, x : int, z : int, folder : str = None):
     
-        self._chunkCache = [None for i in range(1024)]
+        self._cache = {}
+        """Contains dynamically loaded chunks"""
+        
         self.closed = False
+        """Whether this file is still open"""
         
         self.folder = folder
+        """Folder containing this .mca file"""
+        
         self.x = x
+        """X coordinate of this region"""
+        
         self.z = z
+        """Z coordinate of this region"""
     
     def __getitem__(self, key):
-    
-        try:
-            assert isinstance(key, tuple)
-            assert len(key) == 2
-        except AssertionError:
-            raise KeyError(f'Key must be x and z coordinate of chunk, not {key}')
+        """Returns chunk at given coordinates in <key>"""
+        if not isinstance(key, tuple):
+            raise KeyError(f'Key must be x and z coordinates of chunk, not {key}')
+            
+        chunkID = self.cache_index(*key)
         
-        return self.get_chunk(x = key[0], z = key[1])
+        if chunkID not in self._cache:
+            self.load_chunk(chunkID)
+        
+        return self._cache[chunkID]
+    
+    def __repr__(self):
+        try:
+            return f'McaFile at {self.file}'
+        except ValueError:
+            return 'McaFile (No Folder)'
     
     def __setitem__(self, key, value):
-    
-        try:
-            assert isinstance(key, tuple)
-            assert len(key) == 2
-        except AssertionError:
-            raise KeyError(f'Key must be x and z coordinate of chunk, not {key}')
+        """Set chunk at given coordinates in <key> to <value>"""
+        if not isinstance(key, tuple):
+            raise KeyError(f'Key must be x and z coordinates of chunk, not {key}')
+        if not isinstance(value, Chunk):
+            raise ValueError(f'<value> must be a Chunk, not a {type(value)}')
         
-        self.set_chunk(x = key[0], z = key[1], value = value)
-        
-    def close(self, save : bool = False):
-        """Close file, save changes if save = True"""
-        if (not self.closed) and save:
-            self.write()
-        self.closed = True
-    
-    @property
-    def file(self):
-        """File containing the chunks, derived from region coordinates"""
-        return os.path.join(self.folder, f'r.{self.x}.{self.z}.mca')
+        chunkID = self.cache_index(*key)
+        self._cache[chunkID] = value
     
     @staticmethod
-    def find_chunk(x : int, z : int):
-        """Return ID of chunk at <x> <z> if the coordinates are valid"""
+    def cache_index(x : int, z : int):
+        """Return cache index of chunk at coordinates <x> <z> if they are valid."""
+        
+        x = int(x)
+        z = int(z)
         
         if not 0 <= x <= 31:
             raise ValueError(f'Invalid region-relative chunk x coordinate {x} (Must be 0-31)')
@@ -60,6 +68,19 @@ class McaFile():
             raise ValueError(f'Invalid region-relative chunk z coordinate {z} (Must be 0-31)')
         
         return 32 * z + x
+    
+    def close(self, save : bool = False):
+        """Close file, save changes if save = True"""
+        if save and not self.closed:
+            self.save()
+        self.closed = True
+    
+    @property
+    def file(self):
+        """File containing the chunks, derived from region coordinates"""
+        if self.folder is None:
+            raise ValueError('No folder.')
+        return os.path.join(self.folder, f'r.{self.x}.{self.z}.mca')
     
     @classmethod
     def from_world(cls, world : str, x : int, z : int, dimension : str = 'minecraft:overworld'):
@@ -77,38 +98,31 @@ class McaFile():
         folder = os.path.join(appdata, '.minecraft', 'saves', world, dimFolder, 'region')
         return cls(folder = folder, x = x, z = z)
     
-    def get_chunk(self, x : int, z : int):
-        """Return chunk at region-relative coordinates <x> <z>"""
-        
-        chunkID = self.find_chunk(x,z)
-        
-        if self._chunkCache[chunkID] is None:
-            self.load_chunk(chunkID)
-        
-        return self._chunkCache[chunkID]
-    
     def load_all_chunks(self):
-        """Load all chunks into self._chunkCache"""
+        """Load all chunks into self._cache"""
         for chunkID in range(1024):
-            try:
-                self.load_chunk(chunkID)
-            except FileNotFoundError:
-                pass
+            if chunkID not in self._cache:
+                try:
+                    self.load_chunk(chunkID)
+                except FileNotFoundError:
+                    pass
 
     def load_chunk(self, chunkID : int):
-        """Load chunk at <chunkID> into self._chunkCache"""
+        """Load chunk at <chunkID> into self._cache"""
         
         if self.closed:
             raise ValueError('I/O operation on closed file.')
+        
+        if not 0 <= chunkID <= 1023:
+            raise IndexError(f'Invalid ChunkID {chunkID} (must be 0-1023)')
     
         header = chunkID * 4
-            
+        
         with open(self.file, mode = 'r+b') as f:
             with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as fmap:
             
                 offset = 4096 * int.from_bytes(fmap[header:header + 3], 'big')
                 sectorCount = fmap[header + 3]
-                timestamp = int.from_bytes(fmap[header + 4096:header + 4100], 'big')
 
                 if sectorCount > 0 and offset >= 2:
                     length = int.from_bytes(fmap[offset:offset + 4], 'big')
@@ -117,10 +131,7 @@ class McaFile():
                 else:
                     raise FileNotFoundError(f'Chunk doesn\'t exist ({offset},{sectorCount})')
         
-        self._chunkCache[chunkID] = Chunk(
-            timestamp = timestamp, 
-            value = Chunk.decode( decompress(chunkData, compression)[0] )
-        )
+        self._cache[chunkID] = Chunk.from_bytes(decompress(chunkData, compression)[0])
     
     @classmethod
     def open(cls, filePath):
@@ -129,7 +140,7 @@ class McaFile():
         file = os.path.basename(filePath)
         match = re.compile(r'r\.(?P<x>-?\d+)\.(?P<z>-?\d+).mca').match(file)
         if match is None:
-            raise ValueError('Invalid file name {file} (must be r.x.z.mca with x and z being coordinates)')
+            raise ValueError(f'Invalid file name {file} (must be r.x.z.mca with x and z being coordinates)')
         return cls(folder = folder, x = match['x'], z = match['z'])
     
     def optimize(self):
@@ -138,13 +149,9 @@ class McaFile():
         os.remove(self.file)
         self.save_all_chunks()
     
-    def write(self):
-        """Same as save_all_chunks, included for interface compatibility"""
-        self.save_all_chunks()
-    
-    def save_all_chunks(self):
-        """Save all chunks from self._chunkCache"""
-        for chunkID in range(1024):
+    def save(self):
+        """Save all chunks from self._cache"""
+        for chunkID in self._cache:
             self.save_chunk(chunkID)
     
     def save_chunk(self, chunkID : int):
@@ -153,17 +160,20 @@ class McaFile():
         if self.closed:
             raise ValueError('I/O operation on closed file.')
         
-        chunk = self._chunkCache[chunkID]
+        if not 0 <= chunkID <= 1023:
+            raise IndexError(f'Invalid ChunkID {chunkID} (must be 0-1023)')
         
-        if chunk is None:
+        if chunkID not in self._cache:
             return
+        
+        self._cache[chunkID].save()
+        chunk = self._cache[chunkID]
         
         # Create missing file
         if not os.path.exists(self.file):
             with open(self.file, mode='w+b') as f:
                 f.truncate(8192)
         
-        timestamp = int(time.time())
         header = chunkID * 4
         
         with open(self.file, mode='r+b') as f:
@@ -206,6 +216,7 @@ class McaFile():
                 # Write header
                 fmap[header:header + 3] = offset.to_bytes(3, 'big')
                 fmap[header + 3] = newSectorCount
+                timestamp = int(time.time())
                 fmap[header + 4096:header + 4100] = timestamp.to_bytes(4, 'big')
                 
                 # Write Data
@@ -213,13 +224,3 @@ class McaFile():
                 fmap[offset:offset + 4] = length.to_bytes(4, 'big')
                 fmap[offset + 4] = compression
                 fmap[offset + 5:offset + length + 4] = chunkData
-    
-    def set_chunk(self, x : int, z : int, value : Chunk):
-        
-        try:
-            assert isinstance(value, Chunk)
-        except AssertionError:
-            raise ValueError(f'<value> must be a Chunk, not a {type(value)}')
-        
-        chunkID = self.find_chunk(x,z)
-        self._chunkCache[chunkID] = value
