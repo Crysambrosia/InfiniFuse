@@ -154,6 +154,9 @@ class Chunk(TAG.Compound):
             # Will be able to build new sections
             raise KeyError(f'Section {sectionID} doesn\'t exist')
         
+        if 'Palette' not in section or 'BlockStates' not in section:
+            pass # Fill in missing palette and blockstates
+        
         if newBlock not in section['Palette']:
         
             paletteIsFull = max(4, len(section['Palette']).bit_length()) % 2 > 0
