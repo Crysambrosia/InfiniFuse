@@ -27,10 +27,16 @@ class DatFile(TAG.Compound):
         self.closed = False
         """Whether this file is still open"""
 
+    def __repr__(self):
+        try:
+            return f'DatFile at {self.filePath}'
+        except ValueError:
+            return 'DatFile (no file path)'
+
     def close(self, save : bool = False):
         """Close file, save changes if save = True"""
         if (not self.closed) and save:
-            self.write()
+            self.save()
         self.closed = True
     
     @property
@@ -58,16 +64,10 @@ class DatFile(TAG.Compound):
             filePath = filePath
         )
 
-    def write(self):
+    def save(self):
         """Save data changes to file"""
         if self.closed:
             raise ValueError('I/O operation on closed file.')
         else:
             with open(self.filePath, mode='w+b') as f:
                 f.write(compress(data = self.to_bytes(), compression = self.compression))
-
-    def __repr__(self):
-        try:
-            return f'DatFile at {self.filePath}'
-        except ValueError:
-            return 'DatFile (no file path)'
