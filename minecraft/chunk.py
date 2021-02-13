@@ -17,11 +17,12 @@ class Chunk(TAG.Compound):
     ID = None
     
     def __init__(self,
+        folder : str = None,
         value : dict = None
     ):
 
         self._cache = {}
-        """Contains dynamically loaded sections / blocks"""
+        """Contains dynamically loaded blocks"""
 
         self.value = {} if value is None else value
         """NBT data as a TAG.Compound"""
@@ -133,6 +134,31 @@ class Chunk(TAG.Compound):
         
         self._cache[cacheID] = block
 
+    @classmethod
+    def open(cls, folder : str, x : int, z : int):
+        """Open chunk at <x> <z> from a folder of .mca files"""
+        
+        regionX, chunkX = divmod(x, 32)
+        regionZ, chunkZ = divmod(z, 32)
+        file = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
+        header = 32 * chunkZ + chunkX
+        
+        with open(file, mode = 'r+b') as f:
+            with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as fmap:
+            
+                offset = 4096 * int.from_bytes(fmap[header:header + 3], 'big')
+                sectorCount = fmap[header + 3]
+
+                if sectorCount > 0 and offset >= 2:
+                    length = int.from_bytes(fmap[offset:offset + 4], 'big')
+                    compression = fmap[offset + 4]
+                    chunkData = fmap[offset + 5:offset + length + 4]
+                
+                else:
+                    raise FileNotFoundError(f'Chunk doesn\'t exist ({offset},{sectorCount})')
+        
+        return cls.from_bytes(decompress(chunkData, compression)[0])
+
     def save(self):
         """Save all blocks in self._cache"""
         for i in self._cache:
@@ -204,3 +230,60 @@ class Chunk(TAG.Compound):
         )
         
         del self._cache[cacheID]
+    
+    def write(self, folder : str):
+        """Save this chunk in <folder>"""
+        regionX, chunkX = divmod(self['']['Level']['xPos'], 32)
+        regionZ, chunkZ = divmod(self['']['Level']['zPos'], 32)
+        
+        file = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
+        header = 4 * (32 * chunkZ + chunkX)
+        
+        with open(file, mode='r+b') as f:
+            with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_WRITE) as fmap:
+                
+                offset = int.from_bytes( fmap[header:header+3], 'big')
+                
+                # If this chunk didn't exist in this file, find the smallest free offset to save it
+                # and set compression to the newest spec, 2 (zlib)
+                if offset == 0:
+                    offset = max(2,*[int.from_bytes(fmap[i*4:i*4+3], 'big')+fmap[i*4+3] for i in range(1024)])
+                    compression = 2
+                else:
+                    compression = fmap[(4096*offset) + 4]
+                
+                # Prepare data
+                chunkData = compress(self.to_bytes(), compression)
+                length = len(chunkData) + 1
+
+                # Check if chunk size changed
+                oldSectorCount = fmap[header+3]
+                newSectorCount = math.ceil((length + 4) / 4096)
+                sectorChange = newSectorCount - oldSectorCount
+                
+                if sectorChange:
+                    # Change offsets for following chunks
+                    for i in range(1024):
+                        oldOffset = int.from_bytes(fmap[i * 4:i * 4 + 3], 'big')
+                        
+                        if oldOffset > offset:
+                            fmap[i * 4:i * 4 + 3] = (oldOffset + sectorChange).to_bytes(3, 'big')
+                    
+                    # Move following chunks
+                    oldStart = 4096 * (offset + oldSectorCount)
+                    newStart = oldStart+(4096 * sectorChange)
+                    data = fmap[oldStart:]
+                    fmap.resize(len(fmap) + (sectorChange * 4096))
+                    fmap[newStart:] = data
+                
+                # Write header
+                fmap[header:header + 3] = offset.to_bytes(3, 'big')
+                fmap[header + 3] = newSectorCount
+                timestamp = int(time.time())
+                fmap[header + 4096:header + 4100] = timestamp.to_bytes(4, 'big')
+                
+                # Write Data
+                offset *= 4096
+                fmap[offset:offset + 4] = length.to_bytes(4, 'big')
+                fmap[offset + 4] = compression
+                fmap[offset + 5:offset + length + 4] = chunkData
