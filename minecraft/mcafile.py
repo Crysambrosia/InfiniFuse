@@ -91,22 +91,6 @@ class McaFile():
             raise ValueError('No folder.')
         return os.path.join(self.folder, f'r.{self.x}.{self.z}.mca')
     
-    @classmethod
-    def from_world(cls, world : str, x : int, z : int, dimension : str = 'minecraft:overworld'):
-        
-        if dimension == 'minecraft:overworld':
-            dimFolder = ''
-        elif dimension == 'minecraft:the_end':
-            dimFolder = 'DIM1'
-        elif dimension == 'minecraft:the_nether':
-            dimFolder = 'DIM-1'
-        else:
-            raise ValueError(f'Invalid dimension {dimension}')
-        
-        appdata = os.environ['APPDATA']
-        folder = os.path.join(appdata, '.minecraft', 'saves', world, dimFolder, 'region')
-        return cls(folder = folder, x = x, z = z)
-    
     def load_all_chunks(self):
         """Load all chunks into self._cache"""
         for cacheID in range(1024):
