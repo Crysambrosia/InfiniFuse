@@ -1,0 +1,7 @@
+{
+    "dimensions" : {
+        "minecraft:overworld" : "",
+        "minecraft:the_end" : "DIM1",
+        "minecraft:the_nether" : "DIM-1"
+    }
+}
