@@ -157,7 +157,7 @@ class Chunk(TAG.Compound):
         
         if 'Palette' not in section or 'BlockStates' not in section:
             section['Palette'] = TAG.List([TAG.Compound(BlockState.create_valid())])
-            section['BlockStates'] = TAG.Long_Array([TAG.Long(0) for _ in range(1024)])
+            section['BlockStates'] = TAG.Long_Array([TAG.Long(0) for _ in range(256)])
         
         if newBlock not in section['Palette']:
         
