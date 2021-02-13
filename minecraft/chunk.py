@@ -27,10 +27,10 @@ class Chunk(TAG.Compound):
         """NBT data as a TAG.Compound"""
 
     def __delitem__(self, key):
-        """Delete a block if <key> is a tuple, otherwise default to super"""
+        """Remove a block from cache if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple):
             cacheID = self.cache_index(*key)
-            self._cache[cacheID] = BlockState.create_valid()
+            del self._cache[cacheID]
         else:
             super().__delitem__(key)
 
@@ -202,3 +202,5 @@ class Chunk(TAG.Compound):
             end = end, 
             value = section['Palette'].index(newBlock)
         )
+        
+        del self._cache[cacheID]

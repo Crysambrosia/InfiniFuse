@@ -27,11 +27,20 @@ class McaFile():
         self.z = z
         """Z coordinate of this region"""
     
-    def __getitem__(self, key):
-        """Returns chunk at given coordinates in <key>"""
+    def __delitem__(self, key):
+        """Remove chunk at given coordinates in <key> from cache"""
         if not isinstance(key, tuple):
             raise KeyError(f'Key must be x and z coordinates of chunk, not {key}')
-            
+        
+        cacheID = self.cache_index(*key)
+        
+        del self._cache[cacheID]
+    
+    def __getitem__(self, key):
+        """Return chunk at given coordinates in <key>"""
+        if not isinstance(key, tuple):
+            raise KeyError(f'Key must be x and z coordinates of chunk, not {key}')
+        
         cacheID = self.cache_index(*key)
         
         if cacheID not in self._cache:
@@ -224,3 +233,5 @@ class McaFile():
                 fmap[offset:offset + 4] = length.to_bytes(4, 'big')
                 fmap[offset + 4] = compression
                 fmap[offset + 5:offset + length + 4] = chunkData
+            
+        del self._cache[cacheID]
