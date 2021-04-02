@@ -1,4 +1,4 @@
-from minecraft import Chunk
+from .dimension import Dimension
 import os
 
 class World():
