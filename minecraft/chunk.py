@@ -57,23 +57,6 @@ class Chunk(TAG.Compound):
         else:
             super().__setitem__(key, value)
     
-    def cache_index(self, x : int, y : int, z : int):
-        """Return cache index of block at <x> <y> <z>."""
-        
-        x = int(x)
-        y = int(y)
-        z = int(z)
-        
-        # Raise an exception if <x> <y> <z> are not valid chunk-relative coordinates
-        if not 0<= x <=15:
-            raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be 0-15)')
-        elif not 0<= y <=255:
-            raise ValueError(f'Invalid chunk-relative y coordinate {y} (must be 0-255)')
-        elif not 0<= z <=15:
-            raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be 0-15)')
-        
-        return y*16*16 + z*16 + x
-    
     @staticmethod
     def validate_coordinates(x : int, y : int, z : int):
         """Return <x> <y> <z> as ints if they are valid chunk-relative coordinates"""
@@ -168,17 +151,22 @@ class Chunk(TAG.Compound):
         
         return cls.from_bytes(decompress(chunkData, compression)[0])
 
-    def save_all(self):
-        """Save all blocks in self._cache"""
-        for key in self._cache:
+    def unload_all(self):
+        """Unload all blocks in self._cache"""
+        
+        keys = [key for key in self._cache]
+        # Copy keys because Python doesn't want the cache to change size during unloading
+        
+        for key in keys:
             x, y, z = key
-            self.save(x, y, z)
+            self.unload(x, y, z)
 
-    def save(self, x : int, y : int, z : int):
-        """Save block at <x> <y> <z> from cache to self.value"""
+    def unload(self, x : int, y : int, z : int):
+        """Unload block at <x> <y> <z> from cache to self.value"""
         
         if (x, y, z) not in self:
             return
+        
         newBlock = self[(x, y, z)]
         
         sectionID, blockID = self.find_section(x, y, z)
@@ -238,10 +226,11 @@ class Chunk(TAG.Compound):
             end = end, 
             value = section['Palette'].index(newBlock)
         )
+        del self[(x,y,z)]
     
-    def write(self, folder : str):
+    def save(self, folder : str):
         """Save this chunk in <folder>, commit all cache changes"""
-        self.save_all()
+        self.unload_all()
         
         regionX, chunkX = divmod(self['']['Level']['xPos'], 32)
         regionZ, chunkZ = divmod(self['']['Level']['zPos'], 32)
