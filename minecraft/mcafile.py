@@ -10,8 +10,13 @@ class McaFile():
     sectorLength = 4096
     
     def __init__(self, path):
+    
         self.closed = True
         self.path = path
+        
+        if not os.path.exists(self.path):
+            with open(self.path, mode = 'wb') as f:
+                f.truncate(sectorLength*2)
     
     def __enter__(self):
         self.closed = False
