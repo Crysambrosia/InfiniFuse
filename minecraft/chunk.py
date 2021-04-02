@@ -1,5 +1,6 @@
 from .compression import compress, decompress
 from .blockstate import BlockState
+from .mcafile import McaFile
 import math
 import minecraft.TAG as TAG
 import mmap
@@ -13,6 +14,7 @@ class Chunk(TAG.Compound):
     Chunks are opened and saved directly, abstracting .mca files
     """
     __slots__ = ['_cache', '_value']
+    fileHandler = McaFile
     ID = None
     
     def __init__(self, value : dict = None):
@@ -129,7 +131,17 @@ class Chunk(TAG.Compound):
     @classmethod
     def open(cls, folder, x : int, z : int):
         """Open a chunk from a folder of .mca files"""
-        
+        data = cls.fileHandler.read_at_coordinates(folder = folder, x = x, z = z)
+        return cls.from_bytes(data)    
+    
+    def save(self, folder):
+        """Save self to <folder>"""
+        self.fileHandler.write_at_coordinates(
+            folder = folder,
+            x = self['']['Level']['xPos'],
+            z = self['']['Level']['zPos'],
+            value = self.to_bytes()
+        )
 
     def unload_all(self):
         """Unload all blocks in self._cache"""

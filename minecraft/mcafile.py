@@ -1,9 +1,7 @@
 from .compression import compress, decompress
-import minecraft.TAG as TAG
 import math
 import mmap
 import os
-import re
 import time
 
 class McaFile():
@@ -17,9 +15,9 @@ class McaFile():
     
     def __enter__(self):
         self.closed = False
-        self.file = open(self.path)
+        self.file = open(self.path, mode = 'r+b')
         self.file.__enter__()
-        self.mmap = mmap.mmap(fileno = self.file.fileno, length = 0, access = mmap.ACCESS_READ)
+        self.mmap = mmap.mmap(fileno = self.file.fileno(), length = 0, access = mmap.ACCESS_WRITE)
         self.mmap.__enter__()  
         return self
     
@@ -45,6 +43,17 @@ class McaFile():
     def __repr__(self):
         return f'McaFile at {self.path}'
     
+    def find_chunk(folder, x : int, z : int):
+        """Return path of containing file and index of chunk at <x> <z>"""
+        
+        regionX, chunkX = divmod(x, 32)
+        regionZ, chunkZ = divmod(z, 32)
+        
+        path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
+        key = 32*chunkZ + chunkX
+        
+        return path, key
+    
     def get_data(self, key):
         """Get data of chunk <key>"""
         
@@ -68,6 +77,14 @@ class McaFile():
         """Return number of sectors used by chunk <key>"""
         return self[key+3]
     
+    @classmethod
+    def read_at_coordinates(cls, folder : str, x : int, z : int):
+    
+        path, key = cls.find_chunk(folder, x, z)
+        
+        with cls(path) as f:
+            return f.get_data(key)
+    
     def set_offset(self, key, value):
         """Set offset for chunk <key> to <value>"""
         self[key : key + 3] = value.to_bytes(length = 3, byteorder = 'big')
@@ -81,7 +98,7 @@ class McaFile():
         value = value.to_bytes(length = 4, byteorder = 'big')
         self[key + self.sectorLength : key + self.sectorLength + 4] = value
     
-    def set_data(self, key, chunk):
+    def set_data(self, key, value):
         """Save this chunk in <folder>, commit all cache changes"""
         
         offset = self.get_offset(key)
@@ -93,7 +110,7 @@ class McaFile():
         
         # Prepare data
         compression = 2
-        data = compress(chunk.to_bytes(), compression)
+        data = compress(value, compression)
         length = len(data) + 1
 
         # Check if chunk size changed
@@ -127,13 +144,10 @@ class McaFile():
         self[offset + 5 : offset + length + 4] = data
     
     @classmethod
-    def write_chunk(cls, folder, chunk):
-        """Save <chunk> to the appropriate McaFile in <folder>"""
-        regionX, chunkX = divmod(chunk['']['Level']['xPos'], 32)
-        regionZ, chunkZ = divmod(chunk['']['Level']['zPos'], 32)
+    def write_at_coordinates(cls, folder : str, x : int, z : int, value):
+        """Save <value> to the appropriate McaFile for <x> <z> in <folder>"""
         
-        key = 32*chunkZ + chunkX
+        path, key = cls.find_chunk(folder, x, z)
         
-        path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
         with cls(path) as f:
-            f.set_data(key, chunk)
+            f.set_data(key, value)
