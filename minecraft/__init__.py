@@ -4,6 +4,6 @@ from .compression import compress, decompress
 from .datfile import DatFile
 from .dimension import Dimension
 from .mcafile import McaFile
-from .world import Dimension, World
+from .world import World
 import minecraft.TAG as TAG
 import minecraft.update as update
