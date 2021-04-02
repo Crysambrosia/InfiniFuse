@@ -1,7 +1,6 @@
 from .compression import compress, decompress
 from .blockstate import BlockState
-import collections.abc
-import copy
+import math
 import minecraft.TAG as TAG
 import mmap
 import os
@@ -16,34 +15,31 @@ class Chunk(TAG.Compound):
     __slots__ = ['_cache', '_value']
     ID = None
     
-    def __init__(self,
-        folder : str = None,
-        value : dict = None
-    ):
+    def __init__(self, value : dict = None):
 
         self._cache = {}
         """Contains dynamically loaded blocks"""
 
-        self.value = {} if value is None else value
+        self.value = value or {}
         """NBT data as a TAG.Compound"""
 
     def __delitem__(self, key):
         """Remove a block from cache if <key> is a tuple, otherwise default to super"""
-        if isinstance(key, tuple):
-            cacheID = self.cache_index(*key)
-            del self._cache[cacheID]
+        if isinstance(key, tuple) and len(key) == 3:
+            x, y, z = self.validate_coordinates(*key)
+            del self._cache[(x,y,z)]
         else:
             super().__delitem__(key)
 
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
-        if isinstance(key, tuple):
-            cacheID = self.cache_index(*key)
+        if isinstance(key, tuple) and len(key) == 3:
+            x, y, z = self.validate_coordinates(*key)
             
-            if cacheID not in self._cache:
-                self.load_block(cacheID)
+            if (x, y, z) not in self._cache:
+                self.load(x, y, z)
             
-            return self._cache[cacheID] 
+            return self._cache[(x, y, z)]
         else:
             return super().__getitem__(key)
     
@@ -55,10 +51,9 @@ class Chunk(TAG.Compound):
     
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
-        if isinstance(key, tuple):
-            cacheID = self.cache_index(*key)
-            value = BlockState.create_valid(value)
-            self._cache[cacheID] = value
+        if isinstance(key, tuple) and len(key) == 3:
+            x, y, z = self.validate_coordinates(*key)
+            self._cache[(x, y, z)] = BlockState.create_valid(value)
         else:
             super().__setitem__(key, value)
     
@@ -78,6 +73,24 @@ class Chunk(TAG.Compound):
             raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be 0-15)')
         
         return y*16*16 + z*16 + x
+    
+    @staticmethod
+    def validate_coordinates(x : int, y : int, z : int):
+        """Return <x> <y> <z> as ints if they are valid chunk-relative coordinates"""
+        
+        x = int(x)
+        y = int(y)
+        z = int(z)
+        
+        # Raise an exception if <x> <y> <z> are not valid chunk-relative coordinates
+        if not 0 <= x <= 15:
+            raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be 0-15)')
+        elif not 0 <= y <= 255:
+            raise ValueError(f'Invalid chunk-relative y coordinate {y} (must be 0-255)')
+        elif not 0 <= z <= 15:
+            raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be 0-15)')
+        
+        return x, y, z
     
     @staticmethod
     def find_block(section, blockID):
@@ -101,19 +114,15 @@ class Chunk(TAG.Compound):
         return unit, start, end
 
     @staticmethod
-    def find_section(cacheID):
-        """Return block and section indexes of cached block <cacheID>"""
-        
-        if not 0 <= cacheID <= 65535:
-            raise KeyError(f'Invalid cache index {block} (must be 0-65535)')
-        
-        sectionID, blockID = divmod(cacheID, 4096)
+    def find_section(x : int, y : int, z : int):
+        """Return block and section indexes of block at coordinates in key"""
+        x, y, z = Chunk.validate_coordinates(x, y, z)
+        sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
-    def load_block(self, cacheID : int):
-        """Load BlockState <cacheID> to self._cache"""
-        
-        sectionID, blockID = self.find_section(cacheID)
+    def load(self, x : int, y : int, z : int):
+        """Load BlockState at <x> <y> <z> to cache"""
+        sectionID, blockID = self.find_section(x, y, z)
         
         block = BlockState.create_valid()
         
@@ -132,7 +141,7 @@ class Chunk(TAG.Compound):
                     block = BlockState(section['Palette'][paletteID])
                 break
         
-        self._cache[cacheID] = block
+        self[(x, y, z)] = block
 
     @classmethod
     def open(cls, folder : str, x : int, z : int):
@@ -159,19 +168,20 @@ class Chunk(TAG.Compound):
         
         return cls.from_bytes(decompress(chunkData, compression)[0])
 
-    def save(self):
+    def save_all(self):
         """Save all blocks in self._cache"""
-        for i in self._cache:
-            self.save_block(i)
+        for key in self._cache:
+            x, y, z = key
+            self.save(x, y, z)
 
-    def save_block(self, cacheID : int):
-        """Save block at <cacheID> of <sectionID> to self.value"""
+    def save(self, x : int, y : int, z : int):
+        """Save block at <x> <y> <z> from cache to self.value"""
         
-        if cacheID not in self._cache:
+        if (x, y, z) not in self:
             return
-        newBlock = self._cache[cacheID]
+        newBlock = self[(x, y, z)]
         
-        sectionID, blockID = self.find_section(cacheID)
+        sectionID, blockID = self.find_section(x, y, z)
         
         for section in self['']['Level']['Sections']:
             if section['Y'] == sectionID:
@@ -228,11 +238,11 @@ class Chunk(TAG.Compound):
             end = end, 
             value = section['Palette'].index(newBlock)
         )
-        
-        del self._cache[cacheID]
     
     def write(self, folder : str):
-        """Save this chunk in <folder>"""
+        """Save this chunk in <folder>, commit all cache changes"""
+        self.save_all()
+        
         regionX, chunkX = divmod(self['']['Level']['xPos'], 32)
         regionZ, chunkZ = divmod(self['']['Level']['zPos'], 32)
         
