@@ -34,6 +34,7 @@ class Dimension():
         """Load region at <x> <y> to cache"""
         self[(x, z)] = Chunk.open(folder = self.folder, x = x, z = z)
     
-    def save(self, x : int, z : int):
+    def unload(self, x : int, z : int):
         """Save chunk at <x> <z> and remove it from cache"""
-        self[(x, z)].save()
+        self[(x, z)].save(folder = self.folder)
+        del self[(x, z)]
