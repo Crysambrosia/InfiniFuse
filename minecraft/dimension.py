@@ -38,3 +38,12 @@ class Dimension():
         """Save chunk at <x> <z> and remove it from cache"""
         self[(x, z)].save(folder = self.folder)
         del self[(x, z)]
+    
+    def unload_all(self):
+    
+        keys = [key for key in self._cache]
+        # Copy keys because Python doesn't want the cache to change size during unloading
+        
+        for key in keys:
+            x, y, z = key
+            self.unload(x, y, z)
