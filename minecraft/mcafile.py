@@ -6,23 +6,44 @@ import os
 import re
 import time
 
-class McaFile(mmap.mmap):
-    """Interface for .mca files
+class McaFile():
+    """Interface for .mca files"""
     
-    Specialized mmap with .mca specific functions and easier instanciation
-    """
     sectorLength = 4096
     
-    def __init__(self, *args, **kwargs):
-        super(type(self), type(self)).__init__(access=mmap.ACCESS_READ, *args, **kwargs)
+    def __init__(self, path):
+        self.closed = True
+        self.path = path
+    
+    def __enter__(self):
+        self.closed = False
+        self.file = open(self.path)
+        self.file.__enter__()
+        self.mmap = mmap.mmap(fileno = self.file.fileno, length = 0, access = mmap.ACCESS_READ)
+        self.mmap.__enter__()  
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.closed = True
+        self.file.__exit__(exc_type, exc_value, traceback)
+        self.mmap.__exit__(exc_type, exc_value, traceback)
+    
+    def __getitem__(self, key):
+    
+        if self.closed:
+            raise IOError(f'{repr(self)} is closed !')
+        
+        return self.mmap[key]
+    
+    def __setitem__(self, key, value):
+    
+        if self.closed:
+            raise IOError(f'{repr(self)} is closed !')
+        
+        self.mmap[key] = value
     
     def __repr__(self):
-        return f'McaFile {self.path}'
-    
-    @staticmethod
-    def chunk_index(x : int, z : int):
-        """Convert <x> and <z> region-relative chunk coordinates to index"""
-        return 32*z + x
+        return f'McaFile at {self.path}'
     
     def get_data(self, key):
         """Get data of chunk <key>"""
@@ -92,7 +113,7 @@ class McaFile(mmap.mmap):
             oldStart = self.sectorLength * (offset + oldSectorCount)
             newStart = oldStart + (self.sectorLength * sectorChange)
             oldData = self[oldStart:]
-            self.resize(len(self) + (sectorChange * self.sectorLength))
+            self.mmap.resize(len(self.mmap) + (sectorChange * self.sectorLength))
             self[newStart:] = oldData
         
         # Write header
@@ -104,3 +125,15 @@ class McaFile(mmap.mmap):
         self[offset : offset + 4] = length.to_bytes(4, 'big')
         self[offset + 4] = compression
         self[offset + 5 : offset + length + 4] = data
+    
+    @classmethod
+    def write_chunk(cls, folder, chunk):
+        """Save <chunk> to the appropriate McaFile in <folder>"""
+        regionX, chunkX = divmod(chunk['']['Level']['xPos'], 32)
+        regionZ, chunkZ = divmod(chunk['']['Level']['zPos'], 32)
+        
+        key = 32*chunkZ + chunkX
+        
+        path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
+        with cls(path) as f:
+            f.set_data(key, chunk)
