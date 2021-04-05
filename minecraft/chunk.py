@@ -47,9 +47,12 @@ class Chunk(TAG.Compound):
     
     def __repr__(self):
         """Shows chunk coordinates"""
-        xPos = str( self['']['Level']['xPos'] )
-        zPos = str( self['']['Level']['zPos'] )
-        return (f'Chunk at {xPos},{zPos}')
+        try:
+            xPos = str( self['']['Level']['xPos'] )
+            zPos = str( self['']['Level']['zPos'] )
+            return f'Chunk at {xPos},{zPos}'
+        except KeyError:
+            return f'Chunk (Invalid position)'
     
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
@@ -131,12 +134,12 @@ class Chunk(TAG.Compound):
     @classmethod
     def open(cls, folder, x : int, z : int):
         """Open a chunk from a folder of .mca files"""
-        data = cls.fileHandler.read_at_coordinates(folder = folder, x = x, z = z)
+        data = cls.fileHandler.read_chunk(folder = folder, x = x, z = z)
         return cls.from_bytes(data)    
     
     def save(self, folder):
         """Save self to <folder>"""
-        self.fileHandler.write_at_coordinates(
+        self.fileHandler.write_chunk(
             folder = folder,
             x = self['']['Level']['xPos'],
             z = self['']['Level']['zPos'],
