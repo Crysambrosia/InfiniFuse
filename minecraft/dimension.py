@@ -1,3 +1,6 @@
+from .mcafile import McaFile
+import os
+
 class Dimension():
     """A dimension of a minecraft world"""
     
@@ -31,8 +34,21 @@ class Dimension():
             self._cache[(x, z)] = value
     
     def load(self, x : int, z : int):
-        """Load region at <x> <y> to cache"""
+        """Load chunk at <x> <y> to cache"""
         self[(x, z)] = Chunk.open(folder = self.folder, x = x, z = z)
+    
+    def load_all(self):
+        """Load all chunks from this dimension
+        
+        Warning : This can easily overload RAM
+        """
+        for fileName in os.listdir(self.folder):
+        
+            if os.path.splitext(fileName)[1] == '.mca':
+            
+                file = McaFile(path = os.path.join(self.folder, fileName))
+                _, regionX, regionZ, _ = fileName.split('.')
+                print(f'Found region {regionX} {regionZ}')
     
     def unload(self, x : int, z : int):
         """Save chunk at <x> <z> and remove it from cache"""
