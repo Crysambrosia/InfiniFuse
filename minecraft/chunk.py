@@ -66,7 +66,7 @@ class Chunk(TAG.Compound):
     @property
     def coords_chunk(self):
         """Chunk grid coords of this chunk"""
-        return (self['']['Level']['xPos'], self['']['Level']['zPos'])
+        return (int(self['']['Level']['xPos']), int(self['']['Level']['zPos']))
     
     @staticmethod
     def validate_coords(x : int, y : int, z : int):
