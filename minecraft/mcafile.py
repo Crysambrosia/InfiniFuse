@@ -48,14 +48,14 @@ class McaFile(collections.abc.Sequence):
         if self.closed:
             raise IOError(f'{repr(self)} is closed')
     
-        if key > len(self):
-            raise ValueError(f'Key must be 0-{len(self)}, not {key}')
+        if key > len(self) - 1:
+            raise IndexError(f'Key must be 0-{len(self)-1}, not {key}')
         
         offset = self.get_offset(key) * self.sectorLength
         sectorCount = self.get_sectorCount(key)
         
-        if sectorCount < 0 or offset <= 2 * self.sectorLength:
-            raise FileNotFoundError(f'Chunk does not exist')
+        if sectorCount <= 0 or offset < 2 * self.sectorLength:
+            return None
         
         length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
         compression = self.mmap[offset + 4]
