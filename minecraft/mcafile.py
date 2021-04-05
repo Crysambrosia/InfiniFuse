@@ -1,3 +1,4 @@
+from .chunk import Chunk
 from .compression import compress, decompress
 import collections.abc
 import math
@@ -54,13 +55,13 @@ class McaFile(collections.abc.Sequence):
         sectorCount = self.get_sectorCount(key)
         
         if sectorCount < 0 or offset <= 2 * self.sectorLength:
-            return b''
+            raise FileNotFoundError(f'Chunk does not exist')
         
         length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
         compression = self.mmap[offset + 4]
         data = self.mmap[offset + 5 : offset + length + 4]
         
-        return decompress(data, compression)[0]
+        return Chunk.from_bytes(decompress(data, compression)[0])
     
     def __len__(self):
         return self.sideLength ** 2
@@ -73,7 +74,7 @@ class McaFile(collections.abc.Sequence):
     
         if key > len(self):
             raise ValueError(f'Key must be 0-{len(self)}, not {key}')
-        
+
         offset = self.get_offset(key)
         
         # If this chunk didn't exist in this file, find the smallest free offset to save it
@@ -83,7 +84,7 @@ class McaFile(collections.abc.Sequence):
         
         # Prepare data
         compression = 2
-        data = compress(value, compression)
+        data = compress(value.to_bytes(), compression)
         length = len(data) + 1
 
         # Check if chunk size changed
@@ -162,17 +163,20 @@ class McaFile(collections.abc.Sequence):
             return f[key]
     
     @property
-    def region_coordinates(self):
+    def coords(self):
+        """Coords of origin block of this file"""
+        return tuple(i * 16 for i in self.coords_chunk)
+    
+    @property
+    def coords_chunk(self):
+        """Chunk grid coords of origin chunk of this file (16x16 blocks)"""
+        return tuple(i * self.sideLength for i in self.coords_region)
+    
+    @property
+    def coords_region(self):
+        """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
         _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
         return (int(regionX), int(regionZ))
-    
-    @property
-    def chunk_coordinates(self):
-        return tuple(i * self.sideLength for i in self.region_coordinates)
-    
-    @property
-    def block_coordinates(self):
-        return tuple(i * 16 for i in self.chunk_coordinates)
     
     def set_offset(self, key, value):
         """Set offset for chunk <key> to <value>"""
@@ -188,10 +192,11 @@ class McaFile(collections.abc.Sequence):
         self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = value
     
     @classmethod
-    def write_chunk(cls, folder : str, x : int, z : int, value):
+    def write_chunk(cls, folder : str, value):
         """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>"""
         
-        path, key = cls.find_chunk(folder, x, z)
+        x, z = value.coords_chunk
+        path, key = cls.find_chunk(folder = folder, x = x, z = z)
         
         with cls(path) as f:
             f[key] = value
