@@ -1,5 +1,6 @@
 from .compression import compress, decompress
 from .blockstate import BlockState
+from .mcafile import McaFile
 import math
 import minecraft.TAG as TAG
 import mmap
@@ -13,6 +14,7 @@ class Chunk(TAG.Compound):
     Chunks are opened and saved directly, abstracting .mca files
     """
     __slots__ = ['_cache', '_value']
+    fileHandler = McaFile
     ID = None
     
     def __init__(self, value : dict = None):
@@ -26,7 +28,7 @@ class Chunk(TAG.Compound):
     def __delitem__(self, key):
         """Remove a block from cache if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
+            x, y, z = self.validate_coordinates(*key)
             del self._cache[(x,y,z)]
         else:
             super().__delitem__(key)
@@ -34,7 +36,7 @@ class Chunk(TAG.Compound):
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
+            x, y, z = self.validate_coordinates(*key)
             
             if (x, y, z) not in self._cache:
                 self.load(x, y, z)
@@ -44,39 +46,31 @@ class Chunk(TAG.Compound):
             return super().__getitem__(key)
     
     def __repr__(self):
-        """Shows chunk coords"""
+        """Shows chunk coordinates"""
         try:
-            return f'Chunk at block {self.coords}'
+            xPos = str( self['']['Level']['xPos'] )
+            zPos = str( self['']['Level']['zPos'] )
+            return f'Chunk at {xPos},{zPos}'
         except KeyError:
             return f'Chunk (Invalid position)'
     
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
+            x, y, z = self.validate_coordinates(*key)
             self._cache[(x, y, z)] = BlockState.create_valid(value)
         else:
             super().__setitem__(key, value)
     
-    @property
-    def coords(self):
-        """Coords of origin block of this chunk"""
-        return tuple(i * 16 for i in self.coords_chunk)
-    
-    @property
-    def coords_chunk(self):
-        """Chunk grid coords of this chunk"""
-        return (self['']['Level']['xPos'], self['']['Level']['zPos'])
-    
     @staticmethod
-    def validate_coords(x : int, y : int, z : int):
-        """Return <x> <y> <z> as ints if they are valid chunk-relative coords"""
+    def validate_coordinates(x : int, y : int, z : int):
+        """Return <x> <y> <z> as ints if they are valid chunk-relative coordinates"""
         
         x = int(x)
         y = int(y)
         z = int(z)
         
-        # Raise an exception if <x> <y> <z> are not valid chunk-relative coords
+        # Raise an exception if <x> <y> <z> are not valid chunk-relative coordinates
         if not 0 <= x <= 15:
             raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be 0-15)')
         elif not 0 <= y <= 255:
@@ -109,8 +103,8 @@ class Chunk(TAG.Compound):
 
     @staticmethod
     def find_section(x : int, y : int, z : int):
-        """Return block and section indexes of block at coords in key"""
-        x, y, z = Chunk.validate_coords(x, y, z)
+        """Return block and section indexes of block at coordinates in key"""
+        x, y, z = Chunk.validate_coordinates(x, y, z)
         sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
@@ -136,6 +130,21 @@ class Chunk(TAG.Compound):
                 break
         
         self[(x, y, z)] = block
+    
+    @classmethod
+    def open(cls, folder, x : int, z : int):
+        """Open a chunk from a folder of .mca files"""
+        data = cls.fileHandler.read_chunk(folder = folder, x = x, z = z)
+        return cls.from_bytes(data)    
+    
+    def save(self, folder):
+        """Save self to <folder>"""
+        self.fileHandler.write_chunk(
+            folder = folder,
+            x = self['']['Level']['xPos'],
+            z = self['']['Level']['zPos'],
+            value = self.to_bytes()
+        )
 
     def unload_all(self):
         """Unload all blocks in self._cache"""
@@ -213,3 +222,4 @@ class Chunk(TAG.Compound):
             value = section['Palette'].index(newBlock)
         )
         del self[(x,y,z)]
+    
