@@ -35,9 +35,9 @@ def makePNG(data, height = None, width = None):
         png += I4(len(IHDR)) + block + I4(zlib.crc32(block))
     if makeIDAT:
         raw = b""
-        for y in xrange(height):
+        for y in range(height):
             raw += b"\0" # no filter for this scanline
-            for x in xrange(width):
+            for x in range(width):
                 c = b"\0" # default black pixel
                 if y < len(data) and x < len(data[y]):
                     c = I1(data[y][x])
