@@ -1,13 +1,18 @@
 from .compression import compress, decompress
+import collections.abc
 import math
 import mmap
 import os
 import time
 
-class McaFile():
-    """Interface for .mca files"""
+class McaFile(collections.abc.Sequence):
+    """Interface for .mca files
+    
+    For use as a context manager !
+    """
     
     sectorLength = 4096
+    sideLength = 32
     
     def __init__(self, path):
     
@@ -16,7 +21,7 @@ class McaFile():
         
         if not os.path.exists(self.path):
             with open(self.path, mode = 'wb') as f:
-                f.truncate(sectorLength*2)
+                f.truncate(self.sectorLength*2)
     
     def __enter__(self):
         self.closed = False
@@ -31,87 +36,50 @@ class McaFile():
         self.file.__exit__(exc_type, exc_value, traceback)
         self.mmap.__exit__(exc_type, exc_value, traceback)
     
+    def __delitem__(self, key):
+        """Delete chunk <key>, will be generated again next time the game runs"""
+        with self as f:
+            f[key] = b''
+    
     def __getitem__(self, key):
-    
-        if self.closed:
-            raise IOError(f'{repr(self)} is closed !')
-        
-        return self.mmap[key]
-    
-    def __setitem__(self, key, value):
-    
-        if self.closed:
-            raise IOError(f'{repr(self)} is closed !')
-        
-        self.mmap[key] = value
-    
-    def __repr__(self):
-        return f'McaFile at {self.path}'
-    
-    def find_chunk(folder, x : int, z : int):
-        """Return path of containing file and index of chunk at <x> <z>"""
-        
-        regionX, chunkX = divmod(x, 32)
-        regionZ, chunkZ = divmod(z, 32)
-        
-        path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
-        key = 32*chunkZ + chunkX
-        
-        return path, key
-    
-    def get_data(self, key):
         """Get data of chunk <key>"""
+    
+        if self.closed:
+            raise IOError(f'{repr(self)} is closed')
+    
+        if key > len(self):
+            raise ValueError(f'Key must be 0-{len(self)}, not {key}')
         
         offset = self.get_offset(key) * self.sectorLength
         sectorCount = self.get_sectorCount(key)
         
         if sectorCount < 0 or offset <= 2 * self.sectorLength:
-            raise FileNotFoundError(f'Chunk doesn\'t exist ({offset},{sectorCount})')
+            return b''
         
-        length = int.from_bytes(self[offset : offset + 4], 'big')
-        compression = self[offset + 4]
-        data = self[offset + 5 : offset + length + 4]
+        length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
+        compression = self.mmap[offset + 4]
+        data = self.mmap[offset + 5 : offset + length + 4]
         
         return decompress(data, compression)[0]
     
-    def get_offset(self, key):
-        """Return offset of chunk <key> in sectors"""
-        return int.from_bytes(self[key : key + 3], byteorder = 'big')
+    def __len__(self):
+        return self.sideLength ** 2
     
-    def get_sectorCount(self, key):
-        """Return number of sectors used by chunk <key>"""
-        return self[key+3]
+    def __setitem__(self, key, value):
+        """Save this chunk <key> to file at self.path, commit all cache changes"""
     
-    @classmethod
-    def read_at_coordinates(cls, folder : str, x : int, z : int):
+        if self.closed:
+            raise IOError(f'{repr(self)} is closed')
     
-        path, key = cls.find_chunk(folder, x, z)
-        
-        with cls(path) as f:
-            return f.get_data(key)
-    
-    def set_offset(self, key, value):
-        """Set offset for chunk <key> to <value>"""
-        self[key : key + 3] = value.to_bytes(length = 3, byteorder = 'big')
-    
-    def set_sectorCount(self, key, value):
-        """Set sectorCount for chunk <key> to <value>"""
-        self[key + 3] = value
-    
-    def set_timestamp(self, key, value):
-        """Set timestamp for chunk <key> to <value>"""
-        value = value.to_bytes(length = 4, byteorder = 'big')
-        self[key + self.sectorLength : key + self.sectorLength + 4] = value
-    
-    def set_data(self, key, value):
-        """Save this chunk in <folder>, commit all cache changes"""
+        if key > len(self):
+            raise ValueError(f'Key must be 0-{len(self)}, not {key}')
         
         offset = self.get_offset(key)
         
         # If this chunk didn't exist in this file, find the smallest free offset to save it
         # and set compression to the newest spec, 2 (zlib)
         if offset == 0:
-            offset = max(2, *[self.get_offset(i) + self.get_sectorCount(i) for i in range(1024)])
+            offset = max(2, *[self.get_offset(i) + self.get_sectorCount(i) for i in range(len(self))])
         
         # Prepare data
         compression = 2
@@ -125,18 +93,18 @@ class McaFile():
         
         if sectorChange:
             # Change offsets for following chunks
-            for i in range(1024):
+            for i in range(len(self)):
                 oldOffset = self.get_offset(i)
                 
                 if oldOffset > offset:
                     self.set_offset(i, oldOffset + sectorChange)
             
             # Move following chunks
-            oldStart = self.sectorLength * (offset + oldSectorCount)
-            newStart = oldStart + (self.sectorLength * sectorChange)
-            oldData = self[oldStart:]
-            self.mmap.resize(len(self.mmap) + (sectorChange * self.sectorLength))
-            self[newStart:] = oldData
+            oldStart = offset + oldSectorCount
+            newStart = oldStart + sectorChange
+            oldData = self.mmap[oldStart * self.sectorLength :]
+            self.mmap.resize(len(self.mmap) + sectorChange * self.sectorLength)
+            self.mmap[newStart * self.sectorLength :] = oldData
         
         # Write header
         self.set_offset(key, offset)
@@ -144,15 +112,86 @@ class McaFile():
         self.set_timestamp(key, int(time.time()))
         
         # Write Data
-        self[offset : offset + 4] = length.to_bytes(4, 'big')
-        self[offset + 4] = compression
-        self[offset + 5 : offset + length + 4] = data
+        offset *= self.sectorLength
+        
+        self.mmap[offset : offset + 4] = length.to_bytes(4, 'big')
+        self.mmap[offset + 4] = compression
+        self.mmap[offset + 5 : offset + length + 4] = data
+    
+    def __repr__(self):
+        return f'McaFile at {self.path}'
+    
+    @staticmethod
+    def find_chunk(folder, x : int, z : int):
+        """Return path of containing file and index of chunk at <x> <z>"""
+        
+        regionX, chunkX = divmod(x, McaFile.sideLength)
+        regionZ, chunkZ = divmod(z, McaFile.sideLength)
+        
+        path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
+        key = McaFile.sideLength*chunkZ + chunkX
+        
+        return path, key
+    
+    def get_all_data(self):
+        """Return all chunks stored in this file
+        
+        Warning : Might overload RAM
+        """
+        chunks = {}
+        for key in range(1024):
+            try:
+                self.get_data(key = key)
+            except:
+                pass
+    
+    def get_offset(self, key):
+        """Return offset of chunk <key> in sectors"""
+        return int.from_bytes(self.mmap[key*4 : key*4 + 3], byteorder = 'big')
+    
+    def get_sectorCount(self, key):
+        """Return number of sectors used by chunk <key>"""
+        return self.mmap[key*4 + 3]
     
     @classmethod
-    def write_at_coordinates(cls, folder : str, x : int, z : int, value):
-        """Save <value> to the appropriate McaFile for <x> <z> in <folder>"""
+    def read_chunk(cls, folder : str, x : int, z : int):
+    
+        path, key = cls.find_chunk(folder, x, z)
+        
+        with cls(path) as f:
+            return f[key]
+    
+    @property
+    def region_coordinates(self):
+        _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
+        return (int(regionX), int(regionZ))
+    
+    @property
+    def chunk_coordinates(self):
+        return tuple(i * self.sideLength for i in self.region_coordinates)
+    
+    @property
+    def block_coordinates(self):
+        return tuple(i * 16 for i in self.chunk_coordinates)
+    
+    def set_offset(self, key, value):
+        """Set offset for chunk <key> to <value>"""
+        self.mmap[key*4 : key*4 + 3] = value.to_bytes(length = 3, byteorder = 'big')
+    
+    def set_sectorCount(self, key, value):
+        """Set sectorCount for chunk <key> to <value>"""
+        self.mmap[key*4 + 3] = value
+    
+    def set_timestamp(self, key, value):
+        """Set timestamp for chunk <key> to <value>"""
+        value = value.to_bytes(length = 4, byteorder = 'big')
+        self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = value
+    
+    @classmethod
+    def write_chunk(cls, folder : str, x : int, z : int, value):
+        """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>"""
         
         path, key = cls.find_chunk(folder, x, z)
         
         with cls(path) as f:
-            f.set_data(key, value)
+            f[key] = value
