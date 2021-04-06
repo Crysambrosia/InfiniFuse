@@ -11,14 +11,22 @@ class McaFile(collections.abc.Sequence):
     
     For use as a context manager !
     """
-    
+    __slots__ = ['_file', '_mmap', 'path']
     sectorLength = 4096
     sideLength = 32
     
     def __init__(self, path):
-    
-        self.closed = True
+        
+        self._file = None
+        self._mmap = None
         self.path = path
+    
+    def __contains__(self, key):
+        """Whether chunk <key> contains any data"""
+        return self[key] is not None
+    
+    def __del__(self):
+        self.__exit__()
     
     def __enter__(self):
         """Will actually create the file if it does not exist"""
@@ -26,37 +34,33 @@ class McaFile(collections.abc.Sequence):
         if not os.path.exists(self.path):
             with open(self.path, mode = 'wb') as f:
                 f.truncate(self.sectorLength*2)
-    
-        self.closed = False
-        self.file = open(self.path, mode = 'r+b')
-        self.file.__enter__()
-        self.mmap = mmap.mmap(fileno = self.file.fileno(), length = 0, access = mmap.ACCESS_WRITE)
-        self.mmap.__enter__()  
+        
+        self._file = open(self.path, mode = 'r+b')
+        self._file.__enter__()
+        self._mmap = mmap.mmap(fileno = self._file.fileno(), length = 0, access = mmap.ACCESS_WRITE)
+        self._mmap.__enter__()
         return self
     
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.closed = True
-        self.file.__exit__(exc_type, exc_value, traceback)
-        self.mmap.__exit__(exc_type, exc_value, traceback)
+    def __exit__(self, exc_type = None, exc_value = None, traceback = None):
+        self._file.__exit__(exc_type, exc_value, traceback)
+        self._mmap.__exit__(exc_type, exc_value, traceback)
     
     def __delitem__(self, key):
         """Delete chunk <key>, will be generated again next time the game runs"""
-        with self as f:
-            f[key] = b''
+        self[key] = b''
     
     def __getitem__(self, key):
         """Get data of chunk <key>"""
-    
-        if self.closed:
-            raise IOError(f'{repr(self)} is closed')
-    
-        if key > len(self) - 1:
-            raise IndexError(f'Key must be 0-{len(self)-1}, not {key}')
+        
+        self.check_key(key)
+        
+        if not os.path.exists(self.path):
+            return None
         
         offset = self.get_offset(key) * self.sectorLength
         sectorCount = self.get_sectorCount(key)
         
-        if sectorCount <= 0 or offset < 2 * self.sectorLength:
+        if offset < 2 or sectorCount <= 0:
             return None
         
         length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
@@ -70,12 +74,8 @@ class McaFile(collections.abc.Sequence):
     
     def __setitem__(self, key, value):
         """Save this chunk <key> to file at self.path, commit all cache changes"""
-    
-        if self.closed:
-            raise IOError(f'{repr(self)} is closed')
-    
-        if key > len(self):
-            raise ValueError(f'Key must be 0-{len(self)}, not {key}')
+        
+        self.check_key(key)
 
         offset = self.get_offset(key)
         
@@ -124,6 +124,19 @@ class McaFile(collections.abc.Sequence):
     def __repr__(self):
         return f'McaFile at {self.path}'
     
+    def check_key(self, key):
+        """Raise an exception if <key> is invalid for this file"""
+        if not isinstance(key, int):
+            raise TypeError(f'Indices must be int, not {type(key)}')
+        elif key > len(self):
+            raise KeyError(f'Index must be 0-{len(self)}, not {key}')
+   
+    @classmethod
+    def chunk_exists(cls, folder : str, x : int, z : int):
+    
+        path, key = cls.find_chunk(folder, x, z)
+        return key in cls(path)
+   
     @staticmethod
     def find_chunk(folder, x : int, z : int):
         """Return path of containing file and index of chunk at <x> <z>"""
@@ -160,12 +173,7 @@ class McaFile(collections.abc.Sequence):
     def read_chunk(cls, folder : str, x : int, z : int):
     
         path, key = cls.find_chunk(folder, x, z)
-        
-        if os.path.exists(path):
-            with cls(path) as f:
-                return f[key]
-        else:
-            return None
+        return cls(path)[key]
     
     @property
     def coords(self):
@@ -182,6 +190,12 @@ class McaFile(collections.abc.Sequence):
         """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
         _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
         return (int(regionX), int(regionZ))
+    
+    @property
+    def mmap(self):
+        if self._mmap is None:
+            self.__enter__()
+        return self._mmap
     
     def set_offset(self, key, value):
         """Set offset for chunk <key> to <value>"""
@@ -202,6 +216,4 @@ class McaFile(collections.abc.Sequence):
         
         x, z = value.coords_chunk
         path, key = cls.find_chunk(folder = folder, x = x, z = z)
-        
-        with cls(path) as f:
-            f[key] = value
+        cls(path)[key] = value
