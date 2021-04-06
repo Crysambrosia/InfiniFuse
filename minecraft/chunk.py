@@ -7,7 +7,7 @@ import os
 import time
 import util
 
-class Chunk(TAG.Compound):
+class Chunk(TAG.Compound, util.Cache):
     """Chunk data model and interface
     
     Chunks are opened and saved directly, abstracting .mca files
@@ -26,20 +26,20 @@ class Chunk(TAG.Compound):
     def __delitem__(self, key):
         """Remove a block from cache if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
-            del self._cache[x,y,z]
+            key = self.validate_coords(key)
+            del self._cache[key]
         else:
             super().__delitem__(key)
 
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
+            key = self.validate_coords(key)
             
-            if (x, y, z) not in self._cache:
-                self.load(x, y, z)
+            if key not in self._cache:
+                self.load(key)
             
-            return self._cache[(x, y, z)]
+            return self._cache[key]
         else:
             return super().__getitem__(key)
     
@@ -53,8 +53,8 @@ class Chunk(TAG.Compound):
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            x, y, z = self.validate_coords(*key)
-            self._cache[(x, y, z)] = BlockState.create_valid(value)
+            key = self.validate_coords(key)
+            self._cache[key] = BlockState.create_valid(value)
         else:
             super().__setitem__(key, value)
     
@@ -69,20 +69,18 @@ class Chunk(TAG.Compound):
         return (int(self['']['Level']['xPos']), int(self['']['Level']['zPos']))
     
     @staticmethod
-    def validate_coords(x : int, y : int, z : int):
+    def validate_coords(coords : tuple):
         """Return <x> <y> <z> as ints if they are valid chunk-relative coords"""
         
-        x = int(x)
-        y = int(y)
-        z = int(z)
+        x, y, z = [int(i) for i in coords]
         
         # Raise an exception if <x> <y> <z> are not valid chunk-relative coords
         if not 0 <= x <= 15:
-            raise ValueError(f'Invalid chunk-relative x coordinate {x} (must be 0-15)')
+            raise ValueError(f'Invalid chunk-relative x {x} (must be 0-15)')
         elif not 0 <= y <= 255:
-            raise ValueError(f'Invalid chunk-relative y coordinate {y} (must be 0-255)')
+            raise ValueError(f'Invalid chunk-relative y {y} (must be 0-255)')
         elif not 0 <= z <= 15:
-            raise ValueError(f'Invalid chunk-relative z coordinate {z} (must be 0-15)')
+            raise ValueError(f'Invalid chunk-relative z {z} (must be 0-15)')
         
         return x, y, z
     
@@ -108,15 +106,15 @@ class Chunk(TAG.Compound):
         return unit, start, end
 
     @staticmethod
-    def find_section(x : int, y : int, z : int):
+    def find_section(key):
         """Return block and section indexes of block at coords in key"""
-        x, y, z = Chunk.validate_coords(x, y, z)
+        x, y, z = Chunk.validate_coords(key)
         sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
-    def load(self, x : int, y : int, z : int):
+    def load(self, key):
         """Load BlockState at <x> <y> <z> to cache"""
-        sectionID, blockID = self.find_section(x, y, z)
+        sectionID, blockID = self.find_section(key)
         
         block = BlockState.create_valid()
         
@@ -135,27 +133,22 @@ class Chunk(TAG.Compound):
                     block = BlockState(section['Palette'][paletteID])
                 break
         
-        self[x, y, z] = block
+        self[key] = block
 
-    def unload_all(self):
-        """Unload all blocks in self._cache"""
-        
-        keys = [key for key in self._cache]
-        # Copy keys because Python doesn't want the cache to change size during unloading
-        
-        for key in keys:
-            x, y, z = key
-            self.unload(x, y, z)
+    def to_bytes(self):
+        """Return NBT data as a bytearray. Will save all cached changes"""
+        self.save_all()
+        return super().to_bytes()
 
-    def unload(self, x : int, y : int, z : int):
-        """Unload block at <x> <y> <z> from cache to self.value"""
+    def save(self, key):
+        """save block at <key> from cache to self.value"""
         
-        if (x, y, z) not in self:
+        if key not in self._cache:
             return
         
-        newBlock = self[x, y, z]
+        newBlock = self[key]
         
-        sectionID, blockID = self.find_section(x, y, z)
+        sectionID, blockID = self.find_section(key)
         
         for section in self['']['Level']['Sections']:
             if section['Y'] == sectionID:
@@ -212,4 +205,4 @@ class Chunk(TAG.Compound):
             end = end, 
             value = section['Palette'].index(newBlock)
         )
-        del self[x,y,z]
+        del self[key]
