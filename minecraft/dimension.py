@@ -1,9 +1,9 @@
 from .chunk import Chunk
 from .mcafile import McaFile
-from util.png import makePNG
 import os
+import util
 
-class Dimension():
+class Dimension(util.Cache):
     """A dimension of a minecraft world"""
     
     def __init__(self, folder : str):
@@ -12,32 +12,79 @@ class Dimension():
         """Folder containing this dimension's .mca files"""
     
         self._cache = {}
-        """Cache containing loaded chunks files"""
+        """Cache containing loaded chunks"""
+    
+    def __contains__(self, key):
+        """Returns whether chunk <key> exists in this dimension"""
+        if isinstance(key, tuple) and len(key) == 2:
+            x, z = key
+            return McaFile.chunk_exists(folder = self.folder, x = x, z = z)
     
     def __delitem__(self, key):
         """Remove item from cache"""
-        if isinstance(key, tuple) and len(key) == 2:
-            x, z = key
-            del self._cache[(x, z)]
-    
-    def __getitem__(self, key):
-        if isinstance(key, tuple) and len(key) == 2:
-            x, z = key
-            if (x, z) not in self._cache:
-                self.load(x, z)
-            return self._cache[(x, z)]
-    
-    def __setitem__(self, key, value):
-        if not isinstance(value, Chunk):
-            raise ValueError(f'Value must be minecraft.Chunk, not {value}')
         
         if isinstance(key, tuple) and len(key) == 2:
-            x, z = key
-            self._cache[(x, z)] = value
+            del self._cache[key]
     
-    def load(self, x : int, z : int):
+    def __getitem__(self, key):
+        """Return a chunk from two coords, and a block from three"""
+        self.check_key(key)
+        
+        if len(key) == 2:
+        
+            if key not in self._cache:
+                self.load(key)
+            
+            return self._cache[key]
+            
+        elif len(key) == 3:
+            x, y, z = key
+            chunkX, x = divmod(x, 16)
+            chunkZ, z = divmod(z, 16)
+            
+            return self[chunkX, chunkZ][x, y, z]
+    
+    def __setitem__(self, key, value):
+        """"""
+        self.check_key(key)
+        
+        if len(key) == 2:
+        
+            if value is not None and not isinstance(value, Chunk):
+                raise ValueError(f'Value must be minecraft.Chunk, not {value}')
+            
+            self._cache[key] = value
+            
+        elif len(key) == 3:
+            x, y, z = key
+            chunkX, x = divmod(x, 16)
+            chunkZ, z = divmod(z, 16)
+            self[chunkX, chunkZ][x, y, z] = value
+    
+    def all_chunk_coords(self):
+        """Return coord tuples for all chunks present in this dimension"""
+        
+        allCoords = []
+        
+        for fileName in os.listdir(self.folder):
+            print(f'Dealing with {fileName}...')
+            
+            if os.path.splitext(fileName)[1] == '.mca':
+                with McaFile(os.path.join(self.folder, fileName)) as f:
+                    for chunk in f:
+                        if chunk is not None:
+                            allCoords.append(chunk.coords_chunk)
+        return allCoords
+    
+    def check_key(self, key):
+        """Raise an exception if <key> is invalid"""
+        if not isinstance(key, tuple):
+            raise TypeError(f'Key must be tuple, not {type(key)}')
+    
+    def load(self, key):
         """Load chunk at <x> <y> to cache"""
-        self[(x, z)] = McaFile.read_chunk(folder = self.folder, x = x, z = z)
+        x, z = key
+        self[key] = McaFile.read_chunk(folder = self.folder, x = x, z = z)
     
     def load_all(self):
         """Load all chunks from this dimension
@@ -58,49 +105,33 @@ class Dimension():
     def map_test(self):
         """Create a pixel map of contained chunks within this dimension"""
         
-        minX = 0
-        maxX = 0
-        minZ = 0
-        maxZ = 0
-        
-        all_coords = []
+        Xcoords = []
+        Zcoords = []
         
         for fileName in os.listdir(self.folder):
-            
-            print(f'Dealing with {fileName}...')
-            
             if os.path.splitext(fileName)[1] == '.mca':
-            
-                path = os.path.join(self.folder, fileName)
-                
-                with McaFile(path) as f:
-                    for chunk in f:
-                        if chunk is not None:
-                        
-                            newCoords = chunk.coords_chunk
-                            all_coords.append(newCoords)
-                            
-                            if   newCoords[0] < minX:
-                                minX = newCoords[0]
-                            elif newCoords[0] > maxX:
-                                maxX = newCoords[0]
-                            
-                            if   newCoords[1] < minZ:
-                                minZ = newCoords[1]
-                            elif newCoords[1] > maxZ:
-                                maxZ = newCoords[1]
+                print(f'File {fileName}...')
+                f = McaFile(os.path.join(self.folder, fileName))
+                x, z = f.coords_chunk
+                Xcoords.append(x)
+                Zcoords.append(z)
+        
+        minX = min(Xcoords)
+        maxX = max(Xcoords)
+        minZ = min(Zcoords)
+        maxZ = max(Zcoords)
+        print(f'From {minX} {minZ} to {maxX} {maxZ}')
         
         width = abs(minX) + abs(maxX)
         height = abs(minZ) + abs(maxZ)
         
         data = []
-        for z in range(height):
-        
+        for z in range(height): 
             row = []
-            
+            print(f'row {z} of {height}')
             for x in range(width):
             
-                if (minX + x, minZ + z) in all_coords:
+                if (minX + x, minZ + z) in self:
                     row.append(255)
                 else:
                     row.append(0)
@@ -108,18 +139,13 @@ class Dimension():
             data.append(row)
         
         with open(r'C:\Users\ambro\Documents\test.png', mode = 'w+b') as f:
-            f.write(makePNG(data))
+            print('Making PNG...')
+            f.write(util.png.makePNG(data))
     
-    def unload(self, x : int, z : int):
+    def save(self, key):
         """Save chunk at <x> <z> and remove it from cache"""
-        McaFile.write_chunk(folder = self.folder, value = self[(x, z)])
-        del self[(x, z)]
-    
-    def unload_all(self):
-    
-        keys = [key for key in self._cache]
-        # Copy keys because Python doesn't want the cache to change size during unloading
         
-        for key in keys:
-            x, z = key
-            self.unload(x, z)
+        if self[key] is not None:
+            McaFile.write_chunk(folder = self.folder, value = self[key])
+        
+        del self[key]
