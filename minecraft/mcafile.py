@@ -18,12 +18,17 @@ class McaFile(collections.abc.Sequence):
     def __init__(self, path):
         
         self._file = None
+        """File Object of file at self.path (after __enter__)"""
+        
         self._mmap = None
+        """mmap.map of file at self.path (after __enter__)"""
+        
         self.path = path
+        """Path of file for IO"""
     
     def __contains__(self, key):
         """Whether chunk <key> contains any data"""
-        return self[key] is not None
+        return self.get_header(key) is not None
     
     def __del__(self):
         self.__exit__()
@@ -52,17 +57,12 @@ class McaFile(collections.abc.Sequence):
     def __getitem__(self, key):
         """Get data of chunk <key>"""
         
-        self.check_key(key)
+        header = self.get_header(key)
         
-        if not os.path.exists(self.path):
+        if header is None:
             return None
         
-        offset = self.get_offset(key) * self.sectorLength
-        sectorCount = self.get_sectorCount(key)
-        
-        if offset < 2 or sectorCount <= 0:
-            return None
-        
+        offset = header['offset'] * self.sectorLength
         length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
         compression = self.mmap[offset + 4]
         data = self.mmap[offset + 5 : offset + length + 4]
@@ -75,14 +75,16 @@ class McaFile(collections.abc.Sequence):
     def __setitem__(self, key, value):
         """Save this chunk <key> to file at self.path, commit all cache changes"""
         
-        self.check_key(key)
-
-        offset = self.get_offset(key)
+        # Get header info
+        header = self.get_header(key)
         
-        # If this chunk didn't exist in this file, find the smallest free offset to save it
-        # and set compression to the newest spec, 2 (zlib)
-        if offset == 0:
-            offset = max(2, *[self.get_offset(i) + self.get_sectorCount(i) for i in range(len(self))])
+        if header is None:
+            # If this chunk didn't exist in this file, find smallest free offset to save it
+            offset = max(2, *[sum(self.get_header(i)) for i in range(len(self))])
+            oldSectorCount = 0
+        else:
+            offset = header['offset']
+            oldSectorCount = header['sectorCount']
         
         # Prepare data
         compression = 2
@@ -90,17 +92,18 @@ class McaFile(collections.abc.Sequence):
         length = len(data) + 1
 
         # Check if chunk size changed
-        oldSectorCount = self.get_sectorCount(key)
         newSectorCount = math.ceil((length + 4) / self.sectorLength)
         sectorChange = newSectorCount - oldSectorCount
         
         if sectorChange:
             # Change offsets for following chunks
             for i in range(len(self)):
-                oldOffset = self.get_offset(i)
+            
+                header = self.get_header(i)
                 
-                if oldOffset > offset:
-                    self.set_offset(i, oldOffset + sectorChange)
+                if header is not None and header['offset'] > offset:
+                    header['offset'] += sectorChange
+                    self.set_header(i, **header)
             
             # Move following chunks
             oldStart = offset + oldSectorCount
@@ -110,9 +113,12 @@ class McaFile(collections.abc.Sequence):
             self.mmap[newStart * self.sectorLength :] = oldData
         
         # Write header
-        self.set_offset(key, offset)
-        self.set_sectorCount(key, newSectorCount)
-        self.set_timestamp(key, int(time.time()))
+        self.set_header(
+            key, 
+            offset = offset, 
+            sectorCount = newSectorCount,
+            timestamp = int(time.time())
+        )
         
         # Write Data
         offset *= self.sectorLength
@@ -134,12 +140,12 @@ class McaFile(collections.abc.Sequence):
     @classmethod
     def chunk_exists(cls, folder : str, x : int, z : int):
     
-        path, key = cls.find_chunk(folder, x, z)
-        return key in cls(path)
+        file, key = cls.find_chunk(folder, x, z)
+        return key in file
    
-    @staticmethod
-    def find_chunk(folder, x : int, z : int):
-        """Return path of containing file and index of chunk at <x> <z>"""
+    @classmethod
+    def find_chunk(cls, folder : str, x : int, z : int):
+        """Return containing file and index of chunk at <x> <z>"""
         
         regionX, chunkX = divmod(x, McaFile.sideLength)
         regionZ, chunkZ = divmod(z, McaFile.sideLength)
@@ -147,33 +153,32 @@ class McaFile(collections.abc.Sequence):
         path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
         key = McaFile.sideLength*chunkZ + chunkX
         
-        return path, key
+        return cls(path), key
     
-    def get_all_data(self):
-        """Return all chunks stored in this file
+    def get_header(self, key):
+        """Return header info of chunk <key> or None if it does not exist"""
         
-        Warning : Might overload RAM
-        """
-        chunks = {}
-        for key in range(1024):
-            try:
-                self.get_data(key = key)
-            except:
-                pass
-    
-    def get_offset(self, key):
-        """Return offset of chunk <key> in sectors"""
-        return int.from_bytes(self.mmap[key*4 : key*4 + 3], byteorder = 'big')
-    
-    def get_sectorCount(self, key):
-        """Return number of sectors used by chunk <key>"""
-        return self.mmap[key*4 + 3]
+        self.check_key(key)
+        if not os.path.exists(self.path):
+            return None
+        
+        offset = int.from_bytes(self.mmap[key*4 : key*4 + 3], byteorder = 'big')
+        sectorCount = self.mmap[key*4 + 3]
+        timestamp = int.from_bytes(
+            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4],
+            byteorder = 'big'
+        )
+        
+        if offset < 2 or sectorCount <= 0:
+            return None
+        else:
+            return {'offset' : offset, 'sectorCount' : sectorCount, 'timestamp' : timestamp}
     
     @classmethod
     def read_chunk(cls, folder : str, x : int, z : int):
     
-        path, key = cls.find_chunk(folder, x, z)
-        return cls(path)[key]
+        file, key = cls.find_chunk(folder, x, z)
+        return file[key]
     
     @property
     def coords(self):
@@ -197,23 +202,29 @@ class McaFile(collections.abc.Sequence):
             self.__enter__()
         return self._mmap
     
-    def set_offset(self, key, value):
-        """Set offset for chunk <key> to <value>"""
-        self.mmap[key*4 : key*4 + 3] = value.to_bytes(length = 3, byteorder = 'big')
-    
-    def set_sectorCount(self, key, value):
-        """Set sectorCount for chunk <key> to <value>"""
-        self.mmap[key*4 + 3] = value
-    
-    def set_timestamp(self, key, value):
-        """Set timestamp for chunk <key> to <value>"""
-        value = value.to_bytes(length = 4, byteorder = 'big')
-        self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = value
+    def set_header(self, 
+        key : int, 
+        offset : int = None, 
+        sectorCount : int = None,
+        timestamp : int = None
+    ):
+        """Set <offset>, <sectorCount> and <timestamp> of chunk <key>"""
+        self.check_key(key)
+        
+        if offset is not None:
+            self.mmap[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
+        
+        if sectorCount is not None:
+            self.mmap[key*4 + 3] = sectorCount
+        
+        if timestamp is not None:
+            timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
+            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
     
     @classmethod
     def write_chunk(cls, folder : str, value):
         """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>"""
         
         x, z = value.coords_chunk
-        path, key = cls.find_chunk(folder = folder, x = x, z = z)
-        cls(path)[key] = value
+        file, key = cls.find_chunk(folder = folder, x = x, z = z)
+        file[key] = value
