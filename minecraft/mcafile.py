@@ -19,12 +19,14 @@ class McaFile(collections.abc.Sequence):
     
         self.closed = True
         self.path = path
+    
+    def __enter__(self):
+        """Will actually create the file if it does not exist"""
         
         if not os.path.exists(self.path):
             with open(self.path, mode = 'wb') as f:
                 f.truncate(self.sectorLength*2)
     
-    def __enter__(self):
         self.closed = False
         self.file = open(self.path, mode = 'r+b')
         self.file.__enter__()
@@ -159,8 +161,11 @@ class McaFile(collections.abc.Sequence):
     
         path, key = cls.find_chunk(folder, x, z)
         
-        with cls(path) as f:
-            return f[key]
+        if os.path.exists(path):
+            with cls(path) as f:
+                return f[key]
+        else:
+            return None
     
     @property
     def coords(self):
