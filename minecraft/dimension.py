@@ -66,6 +66,25 @@ class Dimension(util.Cache):
         if not isinstance(key, tuple):
             raise TypeError(f'Key must be tuple, not {type(key)}')
     
+    def borders(self):
+        """Return min and max X/Z chunk coords for this dimension"""
+        
+        minX = 0
+        maxX = 0
+        minZ = 0
+        maxZ = 0
+        
+        for fileName in os.listdir(self.folder):
+            if os.path.splitext(fileName)[1] == '.mca':
+                f = McaFile(os.path.join(self.folder, fileName))
+                x, z = f.coords_chunk
+                minX = min(minX, x)
+                minZ = min(minZ, z)
+                maxX = max(maxX, x + 512)
+                maxZ = max(maxZ, z + 512)
+        
+        return (minX, minZ, maxX, maxZ)
+    
     def load(self, key):
         """Load chunk at <x> <y> to cache"""
         x, z = key
