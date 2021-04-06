@@ -47,8 +47,10 @@ class McaFile(collections.abc.Sequence):
         return self
     
     def __exit__(self, exc_type = None, exc_value = None, traceback = None):
-        self._file.__exit__(exc_type, exc_value, traceback)
-        self._mmap.__exit__(exc_type, exc_value, traceback)
+        if self._file is not None:
+            self._file.__exit__(exc_type, exc_value, traceback)
+        if self._mmap is not None:
+            self._mmap.__exit__(exc_type, exc_value, traceback)
     
     def __delitem__(self, key):
         """Delete chunk <key>, will be generated again next time the game runs"""
