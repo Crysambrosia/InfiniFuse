@@ -27,7 +27,7 @@ class Chunk(TAG.Compound):
         """Remove a block from cache if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
             x, y, z = self.validate_coords(*key)
-            del self._cache[(x,y,z)]
+            del self._cache[x,y,z]
         else:
             super().__delitem__(key)
 
@@ -135,7 +135,7 @@ class Chunk(TAG.Compound):
                     block = BlockState(section['Palette'][paletteID])
                 break
         
-        self[(x, y, z)] = block
+        self[x, y, z] = block
 
     def unload_all(self):
         """Unload all blocks in self._cache"""
@@ -153,7 +153,7 @@ class Chunk(TAG.Compound):
         if (x, y, z) not in self:
             return
         
-        newBlock = self[(x, y, z)]
+        newBlock = self[x, y, z]
         
         sectionID, blockID = self.find_section(x, y, z)
         
@@ -212,4 +212,4 @@ class Chunk(TAG.Compound):
             end = end, 
             value = section['Palette'].index(newBlock)
         )
-        del self[(x,y,z)]
+        del self[x,y,z]
