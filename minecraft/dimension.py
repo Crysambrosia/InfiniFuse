@@ -61,21 +61,6 @@ class Dimension(util.Cache):
             chunkZ, z = divmod(z, 16)
             self[chunkX, chunkZ][x, y, z] = value
     
-    def all_chunk_coords(self):
-        """Return coord tuples for all chunks present in this dimension"""
-        
-        allCoords = []
-        
-        for fileName in os.listdir(self.folder):
-            print(f'Dealing with {fileName}...')
-            
-            if os.path.splitext(fileName)[1] == '.mca':
-                with McaFile(os.path.join(self.folder, fileName)) as f:
-                    for chunk in f:
-                        if chunk is not None:
-                            allCoords.append(chunk.coords_chunk)
-        return allCoords
-    
     def check_key(self, key):
         """Raise an exception if <key> is invalid"""
         if not isinstance(key, tuple):
@@ -101,46 +86,6 @@ class Dimension(util.Cache):
                         if chunk is not None:
                             coords = chunk.coords_chunk
                             self[coords] = chunk
-    
-    def map_test(self):
-        """Create a pixel map of contained chunks within this dimension"""
-        
-        Xcoords = []
-        Zcoords = []
-        
-        for fileName in os.listdir(self.folder):
-            if os.path.splitext(fileName)[1] == '.mca':
-                print(f'File {fileName}...')
-                f = McaFile(os.path.join(self.folder, fileName))
-                x, z = f.coords_chunk
-                Xcoords.append(x)
-                Zcoords.append(z)
-        
-        minX = min(Xcoords)
-        maxX = max(Xcoords)
-        minZ = min(Zcoords)
-        maxZ = max(Zcoords)
-        print(f'From {minX} {minZ} to {maxX} {maxZ}')
-        
-        width = abs(minX) + abs(maxX)
-        height = abs(minZ) + abs(maxZ)
-        
-        data = []
-        for z in range(height): 
-            row = []
-            print(f'row {z} of {height}')
-            for x in range(width):
-            
-                if (minX + x, minZ + z) in self:
-                    row.append(255)
-                else:
-                    row.append(0)
-            
-            data.append(row)
-        
-        with open(r'C:\Users\ambro\Documents\test.png', mode = 'w+b') as f:
-            print('Making PNG...')
-            f.write(util.png.makePNG(data))
     
     def save(self, key):
         """Save chunk at <x> <z> and remove it from cache"""
