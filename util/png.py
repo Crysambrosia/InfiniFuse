@@ -1,9 +1,6 @@
 import zlib
 import struct
 
-import zlib
-import struct
-
 def makePNG(data, height = None, width = None):
     def I1(value):
         return struct.pack("!B", value & (2**8-1))
