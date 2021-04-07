@@ -142,11 +142,15 @@ class McaFile(collections.abc.Sequence):
     @classmethod
     def chunk_exists(cls, folder : str, x : int, z : int):
     
-        file, key = cls.find_chunk(folder, x, z)
-        return key in file
+        path, key = cls.find_chunk(folder, x, z)
+        
+        if not os.path.exists(path):
+            return False
+        else:
+            return key in cls(path)
    
-    @classmethod
-    def find_chunk(cls, folder : str, x : int, z : int):
+    @staticmethod
+    def find_chunk(folder : str, x : int, z : int):
         """Return containing file and index of chunk at <x> <z>"""
         
         regionX, chunkX = divmod(x, McaFile.sideLength)
@@ -155,7 +159,7 @@ class McaFile(collections.abc.Sequence):
         path = os.path.join(folder, f'r.{regionX}.{regionZ}.mca')
         key = McaFile.sideLength*chunkZ + chunkX
         
-        return cls(path), key
+        return path, key
     
     def get_header(self, key):
         """Return header info of chunk <key> or None if it does not exist"""
@@ -179,8 +183,8 @@ class McaFile(collections.abc.Sequence):
     @classmethod
     def read_chunk(cls, folder : str, x : int, z : int):
     
-        file, key = cls.find_chunk(folder, x, z)
-        return file[key]
+        path, key = cls.find_chunk(folder, x, z)
+        return cls(path)[key]
     
     @property
     def coords(self):
@@ -228,5 +232,5 @@ class McaFile(collections.abc.Sequence):
         """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>"""
         
         x, z = value.coords_chunk
-        file, key = cls.find_chunk(folder = folder, x = x, z = z)
-        file[key] = value
+        path, key = cls.find_chunk(folder = folder, x = x, z = z)
+        cls(path)[key] = value
