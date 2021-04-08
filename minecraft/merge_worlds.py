@@ -36,12 +36,7 @@ def dimension_binary_map(dimension : minecraft.Dimension):
 
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
-    
-    x = 0
-    z = 0
-    
     for radius in range(maxRadius):
-        print(f'Using Radius {radius}...')
         for z in range(-radius, radius + 1):
             if abs(z) == abs(radius):
             # Top and bottom of the square
@@ -61,38 +56,42 @@ def fuse(base : minecraft.World, other : minecraft.World):
     bMap = dimension_binary_map(other.dimensions['minecraft:overworld'])
     
     print(f'[{datetime.datetime.now()}] Trying offsets...')
-    # Offsets only go as far as half the shortest side of aMap
-    # If there is no smaller working offset, the shortest side of aMap will always work
-    for xOffset, zOffset in generate_offsets(maxRadius = int(min(aMap['xLen'], aMap['zLen']) / 2)):
+    for xOffset, zOffset in generate_offsets():
     
-        # Calculate coordinates of possible overlap area relative to aMap
-        xOverlapMin = max(0,            xOffset + bMap['xMin'] - aMap['xMin'])
-        xOverlapMax = min(aMap['xLen'], xOffset + bMap['xMin'] - aMap['xMin'] + bMap['xLen'])
-        zOverlapMin = max(0,            zOffset + bMap['zMin'] - aMap['zMin'])
-        zOverlapMax = min(aMap['zLen'], zOffset + bMap['zMin'] - aMap['zMin'] + bMap['zLen'])
+        # Calculate coordinates of offset bMap relative to aMap
+        xMinB = xOffset + bMap['xMin'] - aMap['xMin']
+        zMinB = zOffset + bMap['zMin'] - aMap['zMin']
+        xMaxB = xMinB + bMap['xLen']
+        zMaxB = zMinB + bMap['zLen']
+        
+        # Calculate possible overlap from bMap's coordinates
+        xMinOverlap = min(max(0, xMinB), aMap['xLen'])
+        xMaxOverlap = min(max(0, xMaxB), aMap['xLen'])
+        zMinOverlap = min(max(0, zMinB), aMap['zLen'])
+        zMaxOverlap = min(max(0, zMaxB), aMap['zLen'])
         
         # Check all chunks inside the overlapping area
         conflict = False
-        for z, row in enumerate(aMap['map'][zOverlapMin : zOverlapMax]):
-            for x, chunkExists in enumerate(row[xOverlapMin : xOverlapMax]):
+        for z, row in enumerate(aMap['map'][zMinOverlap : zMaxOverlap]):
+            for x, chunkExists in enumerate(row[xMinOverlap : xMaxOverlap]):
             
                 if chunkExists:
                     # Coords start relative to overlap, relative to aMap
                     # Adding both overlap and aMap's origin coordinates makes the coords absolute
                     # And substracting bMap's offset origin makes them relative to offset bMap !
-                    bX = x + xOverlapMin + aMap['xMin'] - (bMap['xMin'] + xOffset)
-                    bZ = z + zOverlapMin + aMap['zMin'] - (bMap['zMin'] + zOffset)
+                    bX = x + xMinOverlap + aMap['xMin'] - (bMap['xMin'] + xOffset)
+                    bZ = z + zMinOverlap + aMap['zMin'] - (bMap['zMin'] + zOffset)
                    
                     try:
                         conflict = bMap['map'][bZ][bX]
                     except IndexError as e:
-                        bxOverlapMin = xOverlapMin + aMap['xMin'] - bMap['xMin']
-                        bzOverlapMin = zOverlapMin + aMap['zMin'] - bMap['zMin']
-                        bxOverlapMax = xOverlapMax + aMap['xMin'] - bMap['xMin']
-                        bzOverlapMax = zOverlapMax + aMap['zMin'] - bMap['zMin']
+                        bxMinOverlap = xMinOverlap + aMap['xMin'] - bMap['xMin']
+                        bzMinOverlap = zMinOverlap + aMap['zMin'] - bMap['zMin']
+                        bxMaxOverlap = xMaxOverlap + aMap['xMin'] - bMap['xMin']
+                        bzMaxOverlap = zMaxOverlap + aMap['zMin'] - bMap['zMin']
                         print(f'Offsets were {xOffset} {zOffset}')
-                        print(f'A relative overlap : {xOverlapMin} {zOverlapMin} to {xOverlapMax} {zOverlapMax}')
-                        print(f'B relative overlap : {bxOverlapMin} {bzOverlapMin} to {bxOverlapMax} {bzOverlapMax}')
+                        print(f'A relative overlap : {xMinOverlap} {zMinOverlap} to {xMaxOverlap} {zMaxOverlap}')
+                        print(f'B relative overlap : {bxMinOverlap} {bzMinOverlap} to {bxMaxOverlap} {bzMaxOverlap}')
                         print(f'Was trying to check {bX, bZ}')
                         print(f'bMap dimensions are {bMap["xMin"]} {bMap["xLen"]} ; {bMap["zMin"]} {bMap["zLen"]}')
                         raise e
@@ -107,9 +106,6 @@ def fuse(base : minecraft.World, other : minecraft.World):
             print(f'[{datetime.datetime.now()}] No conflict with offsets {xOffset} {zOffset}')
             break
     else:
-        if aMap['xLen'] < aMap['zLen']:
-            print(f'[{datetime.datetime.now()}] No smaller offsets found, use {aMap["xMin"] + aMap["xLen"]} 0')
-        else:
-            print(f'[{datetime.datetime.now()}] No smaller offsets found, use 0 {aMap["zMin"] + aMap["zLen"]}')
+        print(f'[{datetime.datetime.now()}] Fusing these maps is impossible, sorry')
 
 '''{'xMin': -256, 'zMin': -320, 'xLen': 512, 'zLen': 864}'''
