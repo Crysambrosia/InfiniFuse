@@ -50,18 +50,15 @@ def generate_offsets(maxRadius : int = 3_750_000):
                 yield x, -radius
                 yield x, radius
 
-def main():
-
-    base = minecraft.World.from_saves('Test')
-    addition = minecraft.World.from_saves('Test2')
+def main(base : minecraft.World, addition : minecraft.World):
     
     print(f'[{datetime.datetime.now()}] Making base binary map...')
     basemap = dimension_binary_map(base.dimensions['minecraft:overworld'])
     print(f'[{datetime.datetime.now()}] Making add binary map...')
     addmap = dimension_binary_map(addition.dimensions['minecraft:overworld'])
     
+    print(f'[{datetime.datetime.now()}] Trying offsets...')
     for offsetX, offsetZ in generate_offsets():
-        print(f'[{datetime.datetime.now()}] Trying offsets {offsetX}, {offsetZ}')
         conflict = False
         for z, row in enumerate(addmap['map']):
             for x, chunkExists in enumerate(row):
@@ -76,7 +73,6 @@ def main():
                     if newRelX in range(basemap['xlen']) and newRelZ in range(basemap['zlen']):
                         conflict = basemap['map'][newRelZ][newRelX]
                         if conflict:
-                            print(f'! -- Conflict at {x} {z} -- !')
                             break
             
             if conflict:
