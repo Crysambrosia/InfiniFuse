@@ -100,4 +100,3 @@ def makeBWPNG(data, height = None, width = None):
 def _example():
     with open("cross3x3.png","wb") as f:
         f.write(makePNG([[0,255,0],[255,255,255],[0,255,0]]))
-        f.write(makePNG([[0,255,0],[255,255,255],[0,255,0]]))
