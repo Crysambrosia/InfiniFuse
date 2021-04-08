@@ -41,6 +41,7 @@ def generate_offsets(maxRadius : int = 3_750_000):
     z = 0
     
     for radius in range(maxRadius):
+        print(f'Using Radius {radius}...')
         for z in range(-radius, radius + 1):
             if abs(z) == abs(radius):
             # Top and bottom of the square
@@ -107,8 +108,8 @@ def fuse(base : minecraft.World, other : minecraft.World):
             break
     else:
         if aMap['xLen'] < aMap['zLen']:
-            print(f'[{datetime.datetime.now()}] No offsets found, use aMap\'s xLen {aMap["xLen"]} 0')
+            print(f'[{datetime.datetime.now()}] No smaller offsets found, use {aMap["xMin"] + aMap["xLen"]} 0')
         else:
-            print(f'[{datetime.datetime.now()}] No offsets found, use aMap\'s zLen 0 {aMap["zLen"]}')
+            print(f'[{datetime.datetime.now()}] No smaller offsets found, use 0 {aMap["zMin"] + aMap["zLen"]}')
 
 '''{'xMin': -256, 'zMin': -320, 'xLen': 512, 'zLen': 864}'''
