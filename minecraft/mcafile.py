@@ -135,7 +135,7 @@ class McaFile(collections.abc.Sequence):
     def binary_map(self):
         """Return a table of booleans, representing whether a chunk exists or not"""
         length = self.sideLength
-        return [[self.chunk_index(x, z) in self for x in range(length)] for z in range(length)]
+        return [[self.chunk_index(x, z) in self for z in range(length)] for x in range(length)]
     
     def check_index(self, index):
         """Raise an exception if <index> is invalid for this file"""
