@@ -63,18 +63,18 @@ def fuse(base : World, other : World):
     for offset in generate_offsets():
         
         # Some random numbers just to test the math, comment out when not needed
-        offset = { 'x' : 53, 'z' : 7 }
+        #offset = { 'x' : 53, 'z' : 7 }
         
         # Calculate new coordinates of b
-        print(f'A : \n{a["pos"]}')
-        print(f'B : \n{b["pos"]}')
-        print(f'Offset : \n{offset}')
+        #print(f'A : \n{a["pos"]}')
+        #print(f'B : \n{b["pos"]}')
+        #print(f'Offset : \n{offset}')
         b['new'] = {
             axis : {
                 coord : b['pos'][axis][coord] + offset[axis] for coord in b['pos'][axis]
             } for axis in b['pos']
         } # Tested
-        print(f'Bnew : \n{b["new"]}')
+        #print(f'Bnew : \n{b["new"]}')
         
         # Calculate absolute chunk coordinates of overlap
         overlap = {
@@ -87,7 +87,7 @@ def fuse(base : World, other : World):
                 } for coord in a['pos'][axis]
             } for axis in a['pos']
         } # Tested
-        print(f'Overlap : \n{overlap}')
+        #print(f'Overlap : \n{overlap}')
         
         # Convert to region and chunk coordinates 
         for axis in overlap:
@@ -96,55 +96,67 @@ def fuse(base : World, other : World):
                 overlap[axis][coord]['region'] = region
                 overlap[axis][coord]['chunk']  = chunk
         # Tested
-        print(f'Converted Overlap : \n{overlap}\n')
+        #print(f'Converted Overlap : \n{overlap}\n')
         
         # Check all chunks inside the overlapping area
         conflict = False
-        for xReg in range(overlap['x']['min']['region'], overlap['x']['max']['region'] + 1):
-            for zReg in range(overlap['z']['min']['region'], overlap['z']['max']['region'] + 1):
-                if (xReg, zReg) in a['map']:
-                    
-                    # Set conflict search domain
-                    search = {
-                        axis : {
-                            'min' : 0,
-                            'max' : McaFile.sideLength - 1
-                        } for axis in a['pos']
-                    }
-                    
-                    # Limit search if region is on the edge of the overlap
-                    for coord in search['x']:
-                        if xReg == overlap['x'][coord]['region']:
-                            search['x'][coord] = overlap['x'][coord]['chunk']
-                
-                    for coord in search['z']:
-                        if zReg == overlap['z'][coord]['region']:
-                            search['z'][coord] = overlap['z'][coord]['chunk']
-                    
-                    print(f'I want to search {search} in region {xReg} {zReg}')
-                    
-        return
-        '''
-        conflict = False
-        for x in range(overlap['x']['min']['abs'], overlap['x']['max']['abs'] + 1):
-            for z in range(overlap['z']['min']['abs'], overlap['z']['max']['abs'] + 1):
+        for coords, region in a['map'].items():
+            xRegion, zRegion = coords
             
-                axRegion, axChunk = divmod(x, McaFile.sideLength)
-                azRegion, azChunk = divmod(x, McaFile.sideLength)\
+            if (
+                xRegion in range(overlap['x']['min']['region'], overlap['x']['max']['region'] + 1)
+                and
+                zRegion in range(overlap['z']['min']['region'], overlap['z']['max']['region'] + 1)
+            ):
+                # Set conflict search domain
+                search = {
+                    axis : {
+                        'min' : 0,
+                        'max' : McaFile.sideLength - 1
+                    } for axis in a['pos']
+                }
                 
-                if (axRegion, azRegion) in a['map'] and a['map'][axRegion,azRegion][axChunk][azChunk] == True:
-                    bxRegion, bxChunk = divmod(x + offset['x'], McaFile.sideLength)
-                    bzRegion, bzChunk = divmod(z + offset['z'], McaFile.sideLength)
-                    
-                    if (bxRegion, bzRegion) in b['map'] and b['map'][bxRegion,bzRegion][bxChunk][bzChunk] == True:
-                        conflict = True
+                # Limit search if region is on the edge of the overlap
+                for coord in search['x']:
+                    if xRegion == overlap['x'][coord]['region']:
+                        search['x'][coord] = overlap['x'][coord]['chunk']
+            
+                for coord in search['z']:
+                    if zRegion == overlap['z'][coord]['region']:
+                        search['z'][coord] = overlap['z'][coord]['chunk']
+                
+                #print(f'Searching {search} in region {xRegion} {zRegion}')
+                
+                for x, row in enumerate(region[search['x']['min'] : search['x']['max'] + 1]):
+                    for z, chunkExists in enumerate(region[x][search['z']['min'] : search['z']['max'] + 1]):
+                        if chunkExists:
+                            #print(f'Checking chunk {x} {z}')
+                        
+                            # Calculate real coordinates of x and z
+                            realX = x + search['x']['min'] + xRegion * McaFile.sideLength
+                            realZ = z + search['z']['min'] + zRegion * McaFile.sideLength
+                            
+                            # Offset relative to B
+                            # (B is positively offset from to A, so A is negatively offset from B)
+                            bX = realX - offset['x']
+                            bZ = realZ - offset['z']
+                            
+                            # Convert to region and chunk coordinates
+                            bxRegion, bxChunk = divmod(bX, McaFile.sideLength)
+                            bzRegion, bzChunk = divmod(bZ, McaFile.sideLength)
+                            
+                            if (bxRegion, bzRegion) in b['map']:
+                                if b['map'][bxRegion, bzRegion][bxChunk][bzChunk] is True:
+                                    conflict = True
+                        if conflict:
+                            break
+                    if conflict:
                         break
             if conflict:
                 break
         else:
-            print(f'[{datetime.datetime.now()}] No conflict for {offset}')
-            break
-        '''
+            print(f'[{datetime.datetime.now()}] No conflict with offset {offset}')
+            return
         '''
         # Check all chunks inside the overlapping area
         conflict = False
