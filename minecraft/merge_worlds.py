@@ -12,26 +12,30 @@ import os
 
 def dimension_binary_map(dimension : minecraft.Dimension):
     """Map all chunks from <dimension> to a two dimensional array of booleans"""
+    print(f'[{datetime.datetime.now()}] Making binary map')
     xMin = 0
     xMax = 0
     zMin = 0
     zMax = 0
+    maps = {}
     
     for fileName in os.listdir(dimension.folder):
         if os.path.splitext(fileName)[1] == '.mca':
             f = minecraft.McaFile(os.path.join(dimension.folder, fileName))
-            x, z = f.coords_chunk
-            xMin = min(xMin, x)
-            zMin = min(zMin, z)
-            # Add 32 and not 31 since range(31) stops at 30 and 31 needs to be included
-            xMax = max(xMax, x + 32)
-            zMax = max(zMax, z + 32)
+            xRegion, zRegion = f.coords_region
+            xMin = min(xMin, xRegion)
+            zMin = min(zMin, zRegion)
+            # Add 1 since range(x) stops at x-1 and x needs to be included
+            xMax = max(xMax, xRegion + 1)
+            zMax = max(zMax, zRegion + 1)
+            
+            maps[xRegion, zRegion] = f.binary_map()
     
     xLen = (abs(xMin) + abs(xMax))
     zLen = (abs(zMin) + abs(zMax))
     
-    binMap = [[minecraft.McaFile.chunk_exists(dimension.folder, xMin + x, zMin + z) for x in range(xLen)] for z in range(zLen)]
-    return {'map' : binMap, 'xMin' : xMin, 'zMin' : zMin, 'xLen' : xLen, 'zLen' : zLen}
+    print(f'[{datetime.datetime.now()}] Done !')
+    return {'maps' : maps, 'xMin' : xMin, 'zMin' : zMin, 'xLen' : xLen, 'zLen' : zLen}
     #return {'xMin' : xMin, 'zMin' : zMin, 'xLen' : xLen, 'zLen' : zLen}
 
 def generate_offsets(maxRadius : int = 3_750_000):
