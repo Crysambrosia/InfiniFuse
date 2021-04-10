@@ -13,6 +13,14 @@ import os
 # Combine player stats
 # Do something with player inventory ?
 
+def point(x : int = 0, z : int = 0):
+    return {'x' : x, 'z' : z}
+
+def rectangle( minimum : point = None, maximum : point = None):
+    minimum = minimum or point(0, 0)
+    maximum = maximum or point(0, 0)
+    return {'min' : minimum, 'max' : maximum}
+
 def dimension_binary_map(dimension : Dimension):
     """Map all chunks from <dimension> to a two dimensional array of booleans"""
     print(f'[{datetime.datetime.now()}] Making binary map')
@@ -29,29 +37,28 @@ def dimension_binary_map(dimension : Dimension):
             z += [zChunk, zChunk + 31]
             maps[xRegion, zRegion] = f.binary_map()
     
+    print(f'[{datetime.datetime.now()}] Done !')
     data = {
         'map' : maps,
-        'pos' : {
-            'x' : {'max' : max(x), 'min' : min(x) },
-            'z' : {'max' : max(z), 'min' : min(z) }
-        }
+        'pos' : rectangle(
+            minimum = point(min(x), min(z)), 
+            maximum = point(max(x), max(z))
+        )
     }
-    
-    print(f'[{datetime.datetime.now()}] Done !')
     return data
 
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
     for radius in range(maxRadius):
-        for z in range(-radius, radius + 1):
-            if abs(z) == abs(radius):
+        for x in range(-radius, radius + 1):
+            if abs(x) == abs(radius):
             # Top and bottom of the square
-                for x in range(-radius, radius + 1):    
-                    yield {'x' : x, 'z' : z}
+                for z in range(-radius, radius + 1):    
+                    yield point(x, z)
             else:
             # Sides of the square
-                yield {'x' : x, 'z' : -radius}
-                yield {'x' : x, 'z' : radius}
+                yield point(x, -radius)
+                yield point(x,  radius)
 
 def fuse(base : World, other : World):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
@@ -63,52 +70,45 @@ def fuse(base : World, other : World):
     for offset in generate_offsets():
         
         # Some random numbers just to test the math, comment out when not needed
-        #offset = { 'x' : 53, 'z' : 7 }
+        offset = point(53, 7)
         
-        # Calculate new coordinates of b
-        #print(f'A : \n{a["pos"]}')
-        #print(f'B : \n{b["pos"]}')
-        #print(f'Offset : \n{offset}')
-        b['new'] = {
-            axis : {
-                coord : b['pos'][axis][coord] + offset[axis] for coord in b['pos'][axis]
-            } for axis in b['pos']
-        } # Tested
-        #print(f'Bnew : \n{b["new"]}')
+        b['new'] = rectangle()
+        # New coordinates of B after offset
         
-        # Calculate absolute chunk coordinates of overlap
-        overlap = {
-            axis : {
-                coord : {
-                    'abs' : min(
-                        max(a['pos'][axis]['min'], b['new'][axis][coord]), 
-                        a['pos'][axis]['max']
-                    )
-                } for coord in a['pos'][axis]
-            } for axis in a['pos']
-        } # Tested
-        #print(f'Overlap : \n{overlap}')
+        o = {
+            'pos'    : rectangle(), # Absolute coords
+            'region' : rectangle(), # Region coords
+            'chunk'  : rectangle()  # Region-relative chunk coords
+        } # Overlap region of A and B
         
-        # Convert to region and chunk coordinates 
-        for axis in overlap:
-            for coord in overlap[axis]:
-                region, chunk = divmod(overlap[axis][coord]['abs'], McaFile.sideLength)
-                overlap[axis][coord]['region'] = region
-                overlap[axis][coord]['chunk']  = chunk
-        # Tested
-        #print(f'Converted Overlap : \n{overlap}\n')
+        for p in b['pos']:
+            for i in b['pos'][p]:
+            
+                b['new'][p][i] = b['pos'][p][i] + offset[i]
+                
+                o['pos'][p][i] = min(max(b['new'][p][i], a['pos']['min'][i]), a['pos']['max'][i])
+                
+                o['region'][p][i], o['chunk'][p][i] = divmod(o['pos'][p][i], McaFile.sideLength)
         
         # Check all chunks inside the overlapping area
         conflict = False
         for coords, region in a['map'].items():
-            xRegion, zRegion = coords
+            regionLoc = point(*coords)
+            
+            for i in regionLoc:
+                
+                if regionLoc[i] not in range(o['region']['min'][i], o['region']['max'][i] + 1):
+                    break
+            else:
+                #WIP
             
             if (
-                xRegion in range(overlap['x']['min']['region'], overlap['x']['max']['region'] + 1)
+                regionLoc['x'] in range(overlap['x']['min']['region'], overlap['x']['max']['region'] + 1)
                 and
-                zRegion in range(overlap['z']['min']['region'], overlap['z']['max']['region'] + 1)
+                regionLoc['z'] in range(overlap['z']['min']['region'], overlap['z']['max']['region'] + 1)
             ):
-                # Set conflict search domain
+            
+                # Set conflict search domain, limited if region is on the edge of the overlap
                 search = {
                     axis : {
                         'min' : 0,
@@ -117,13 +117,10 @@ def fuse(base : World, other : World):
                 }
                 
                 # Limit search if region is on the edge of the overlap
-                for coord in search['x']:
-                    if xRegion == overlap['x'][coord]['region']:
-                        search['x'][coord] = overlap['x'][coord]['chunk']
-            
-                for coord in search['z']:
-                    if zRegion == overlap['z'][coord]['region']:
-                        search['z'][coord] = overlap['z'][coord]['chunk']
+                for axis in search:
+                    for coord in search[axis]:
+                        if xRegion == overlap[axis][coord]['region']:
+                            search[axis][coord] = overlap[axis][coord]['chunk']
                 
                 #print(f'Searching {search} in region {xRegion} {zRegion}')
                 
