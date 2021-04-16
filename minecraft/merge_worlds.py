@@ -40,7 +40,7 @@ def dimension_binary_map(dimension : Dimension):
     data = {
         'map' : maps,
         'pos' : rectangle(
-            minimum = point(min(x), min(z)), 
+            minimum = point(min(x), min(z)),
             maximum = point(max(x), max(z))
         )
     }
@@ -53,11 +53,11 @@ def generate_offsets(maxRadius : int = 3_750_000):
             if abs(x) == abs(radius):
             # Top and bottom of the square
                 for z in range(-radius, radius + 1):    
-                    yield point(x, z)
+                    yield {'x' : x, 'z' : z}
             else:
             # Sides of the square
-                yield point(x, -radius)
-                yield point(x,  radius)
+                yield {'x' : x, 'z' : -radius}
+                yield {'x' : x, 'z' :  radius}
 
 def fuse(base : World, other : World):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
@@ -68,21 +68,36 @@ def fuse(base : World, other : World):
     b = dimension_binary_map(other.dimensions['minecraft:overworld'])
     # Binary map of <other>'s overworld
     
+    sidelen = McaFile.sideLength
+    # Side length of a region file in chunks
+    
+    defaultSearch = {'min' : 0, 'max' : sidelen - 1}
+    # Default search area limits inside a region file
+
+    # Initialize all points and rectangles at once, outside of the loop
+
+
+    b['new'] = rectangle() # New coordinates of b after offset
+    
+    o = {} # Overlap region of A and B
+    o['pos'] = rectangle() # Overlap absolute chunk coords
+    o['reg'] = rectangle() # Overlap region coords
+    o['cnk'] = rectangle() # Overlap region-relative chunk coords
+    
+    search = rectangle() # Search area inside region file
+    
+    regionPos = point() # Chunk coords of region currently checked for overlap
+    
+    chunk = {} # Coordinates of chunk currently checked for overlap
+    chunk['pos'] = point() # Chunk absolute chunk coords
+    chunk['reg'] = point() # Chunk region coords
+    chunk['cnk'] = point() # Chunk region-relative chunk coords
     
     
     print(f'[{datetime.datetime.now()}] Trying offsets...')
     for offset in generate_offsets():
         # Some random numbers just to test the math, comment out when not needed
-        #offset = point(53, 7)
-        
-        b['new'] = rectangle()
-        # New coordinates of B after offset
-        
-        o = {
-            'pos'    : rectangle(), # Absolute coords
-            'region' : rectangle(), # Region coords
-            'chunk'  : rectangle()  # Region-relative chunk coords
-        } # Overlap region of A and B
+        #offset = {'x' : 53, 'z' : 7}
         
         for p in b['pos']:
             for i in b['pos'][p]:
@@ -94,53 +109,49 @@ def fuse(base : World, other : World):
                 o['pos'][p][i] = min(max(b['new'][p][i], a['pos']['min'][i]), a['pos']['max'][i])
                 
                 # Convert overlap position to region and chunk
-                o['region'][p][i], o['chunk'][p][i] = divmod(o['pos'][p][i], McaFile.sideLength)
+                o['reg'][p][i], o['cnk'][p][i] = divmod(o['pos'][p][i], sidelen)
         
         # Check all chunks inside the overlapping area
         conflict = False
         for coords, region in a['map'].items():
-            regionPos = point(*coords)
-            search = rectangle()
+            regionPos['x'] = coords[0]
+            regionPos['z'] = coords[1]
             
             for i in regionPos:
-                if regionPos[i] not in range(o['region']['min'][i], o['region']['max'][i] + 1):
+                if regionPos[i] not in range(o['reg']['min'][i], o['reg']['max'][i] + 1):
                     break
                 
             else:
-                default = {'min' : 0, 'max' : McaFile.sideLength - 1}
-                search = rectangle()
-                
+            
                 # If region is on the edge of the overlap, serach only relevant chunks
                 for p in search:
                     for i in search[p]:
-                        if regionPos[i] == o['region'][p][i]:
-                            search[p][i] = o['chunk'][p][i]
+                        if regionPos[i] == o['reg'][p][i]:
+                            search[p][i] = o['cnk'][p][i]
                         else:
-                            search[p][i] = default[p]
+                            search[p][i] = defaultSearch[p]
                 
                 for x, row in enumerate(region[search['min']['x'] : search['max']['x'] + 1]):
                     for z, chunkExists in enumerate(region[x][search['min']['z'] : search['max']['z'] + 1]):
                         if chunkExists:
-                        
-                            chunk = {
-                                'pos' : point(x, z),
-                                'region' : point(),
-                                'chunk' : point()
-                            }
-                            for i in chunk['pos']:
                             
+                            chunk['pos']['x'] = x
+                            chunk['pos']['z'] = z
+                            
+                            for i in chunk['pos']:
+                                
                                 # Convert from search-relative to a-relative
-                                chunk['pos'][i] += search['min'][i] + regionPos[i] * McaFile.sideLength
+                                chunk['pos'][i] += search['min'][i] + regionPos[i] * sidelen
                                 
                                 # Convert from a-relative to b-relative
                                 chunk['pos'][i] -= offset[i]
                                 
                                 # Convert to region and chunk
-                                chunk['region'][i], chunk['chunk'][i] = divmod(chunk['pos'][i], McaFile.sideLength)
+                                chunk['reg'][i], chunk['cnk'][i] = divmod(chunk['pos'][i], sidelen)
                             
-                            regionIdx = (chunk['region']['x'], chunk['region']['z'])
+                            regionIdx = (chunk['reg']['x'], chunk['reg']['z'])
                             if regionIdx in b['map']:
-                                conflict = b['map'][regionIdx][chunk['chunk']['x']][chunk['chunk']['z']]
+                                conflict = b['map'][regionIdx][chunk['cnk']['x']][chunk['cnk']['z']]
                         if conflict:
                             break
                     if conflict:
