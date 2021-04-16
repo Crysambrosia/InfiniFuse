@@ -2,7 +2,6 @@ from .dimension import Dimension
 from .mcafile import McaFile
 from .world import World
 import datetime
-import minecraft
 import os
 
 # Find offset for map
@@ -64,13 +63,17 @@ def fuse(base : World, other : World):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
     
     a = dimension_binary_map(base.dimensions['minecraft:overworld'])
+    # Binary map of <base>'s overworld
+    
     b = dimension_binary_map(other.dimensions['minecraft:overworld'])
+    # Binary map of <other>'s overworld
+    
+    
     
     print(f'[{datetime.datetime.now()}] Trying offsets...')
     for offset in generate_offsets():
-        
         # Some random numbers just to test the math, comment out when not needed
-        offset = point(53, 7)
+        #offset = point(53, 7)
         
         b['new'] = rectangle()
         # New coordinates of B after offset
@@ -84,47 +87,72 @@ def fuse(base : World, other : World):
         for p in b['pos']:
             for i in b['pos'][p]:
             
+                # Offset new coordinates of b
                 b['new'][p][i] = b['pos'][p][i] + offset[i]
                 
+                # Find absolute position of overlap
                 o['pos'][p][i] = min(max(b['new'][p][i], a['pos']['min'][i]), a['pos']['max'][i])
                 
+                # Convert overlap position to region and chunk
                 o['region'][p][i], o['chunk'][p][i] = divmod(o['pos'][p][i], McaFile.sideLength)
         
         # Check all chunks inside the overlapping area
         conflict = False
         for coords, region in a['map'].items():
-            regionLoc = point(*coords)
+            regionPos = point(*coords)
+            search = rectangle()
             
-            for i in regionLoc:
-                
-                if regionLoc[i] not in range(o['region']['min'][i], o['region']['max'][i] + 1):
+            for i in regionPos:
+                if regionPos[i] not in range(o['region']['min'][i], o['region']['max'][i] + 1):
                     break
+                
             else:
-                #WIP
-            
-            if (
-                regionLoc['x'] in range(overlap['x']['min']['region'], overlap['x']['max']['region'] + 1)
-                and
-                regionLoc['z'] in range(overlap['z']['min']['region'], overlap['z']['max']['region'] + 1)
-            ):
-            
-                # Set conflict search domain, limited if region is on the edge of the overlap
-                search = {
-                    axis : {
-                        'min' : 0,
-                        'max' : McaFile.sideLength - 1
-                    } for axis in a['pos']
-                }
+                default = {'min' : 0, 'max' : McaFile.sideLength - 1}
+                search = rectangle()
                 
-                # Limit search if region is on the edge of the overlap
-                for axis in search:
-                    for coord in search[axis]:
-                        if xRegion == overlap[axis][coord]['region']:
-                            search[axis][coord] = overlap[axis][coord]['chunk']
+                # If region is on the edge of the overlap, serach only relevant chunks
+                for p in search:
+                    for i in search[p]:
+                        if regionPos[i] == o['region'][p][i]:
+                            search[p][i] = o['chunk'][p][i]
+                        else:
+                            search[p][i] = default[p]
                 
-                #print(f'Searching {search} in region {xRegion} {zRegion}')
+                for x, row in enumerate(region[search['min']['x'] : search['max']['x'] + 1]):
+                    for z, chunkExists in enumerate(region[x][search['min']['z'] : search['max']['z'] + 1]):
+                        if chunkExists:
+                        
+                            chunk = {
+                                'pos' : point(x, z),
+                                'region' : point(),
+                                'chunk' : point()
+                            }
+                            for i in chunk['pos']:
+                            
+                                # Convert from search-relative to a-relative
+                                chunk['pos'][i] += search['min'][i] + regionPos[i] * McaFile.sideLength
+                                
+                                # Convert from a-relative to b-relative
+                                chunk['pos'][i] -= offset[i]
+                                
+                                # Convert to region and chunk
+                                chunk['region'][i], chunk['chunk'][i] = divmod(chunk['pos'][i], McaFile.sideLength)
+                            
+                            regionIdx = (chunk['region']['x'], chunk['region']['z'])
+                            if regionIdx in b['map']:
+                                conflict = b['map'][regionIdx][chunk['chunk']['x']][chunk['chunk']['z']]
+                        if conflict:
+                            break
+                    if conflict:
+                        break
+                if conflict:
+                    break
+        else:
+            print(f'[{datetime.datetime.now()}] No conflict with offset {offset}')
+            break
+        
                 
-                for x, row in enumerate(region[search['x']['min'] : search['x']['max'] + 1]):
+        '''for x, row in enumerate(region[search['x']['min'] : search['x']['max'] + 1]):
                     for z, chunkExists in enumerate(region[x][search['z']['min'] : search['z']['max'] + 1]):
                         if chunkExists:
                             #print(f'Checking chunk {x} {z}')
@@ -153,6 +181,6 @@ def fuse(base : World, other : World):
                 break
         else:
             print(f'[{datetime.datetime.now()}] No conflict with offset {offset}')
-            return
+            return'''
 
 '''{'xMin': -256, 'zMin': -320, 'xLen': 512, 'zLen': 864}'''
