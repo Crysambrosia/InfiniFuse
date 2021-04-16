@@ -117,13 +117,11 @@ def fuse(base : World, other : World):
             regionPos['x'] = coords[0]
             regionPos['z'] = coords[1]
             
-            for i in regionPos:
-                if regionPos[i] not in range(o['reg']['min'][i], o['reg']['max'][i] + 1):
-                    break
-                
-            else:
-            
-                # If region is on the edge of the overlap, serach only relevant chunks
+            if ( 
+                    regionPos['x'] in range(o['reg']['min']['x'], o['reg']['max']['x'] + 1)
+                and regionPos['z'] in range(o['reg']['min']['z'], o['reg']['max']['z'] + 1)
+            ):
+                # If region is on the edge of the overlap, search only relevant chunks
                 for p in search:
                     for i in search[p]:
                         if regionPos[i] == o['reg'][p][i]:
@@ -156,8 +154,9 @@ def fuse(base : World, other : World):
                             break
                     if conflict:
                         break
-                if conflict:
-                    break
+                
+            if conflict:
+                break
         else:
             print(f'[{datetime.datetime.now()}] No conflict with offset {offset}')
             break
