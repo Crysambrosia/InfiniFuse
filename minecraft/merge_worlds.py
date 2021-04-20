@@ -203,65 +203,21 @@ def fuse(base : World, other : World):
     bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(other.dimensions['minecraft:overworld'])
     # Binary map of <other>'s overworld
     
-    sidelen = McaFile.sideLength
+    sideLen = McaFile.sideLength
     # Side length of a region file in chunks
     
-    
-    # Initialize all coords at once, outside of the loop
-    # These variables are not stored in dicts on purpose !
-    # Dict access somehow halves performance
-    
     defaultSearchMin = 0
-    defaultSearchMax = sideLen-1
+    defaultSearchMax = sideLen - 1
     # Default search area limits inside a region file
-
-
-    # New limit coords of B after offset
-    newXmax = 0
-    newXmin = 0
-    newZmax = 0
-    newZmin = 0
-    
-    # Absolute position of overlap
-    overlapXmax = 0
-    overlapXmin = 0
-    overlapZmax = 0
-    overlapZmin = 0
-    
-    # Region coords of overlap
-    overlapXmaxRegion = 0
-    overlapXminRegion = 0
-    overlapZmaxRegion = 0
-    overlapZminRegion = 0
-    
-    # Region-relative chunk coords of overlap
-    overlapXmaxChunk = 0
-    overlapXminChunk = 0
-    overlapZmaxChunk = 0
-    overlapZminChunk = 0
-    
-    # Search area inside region file
-    searchXmax = 0
-    searchXmin = 0
-    searchZmax = 0
-    searchZmin = 0
-    
-    # Chunk coords of region currently checked for overl
-    regionX = 0
-    regionZ = 0
-    
-    # Coordinates of chunk currently checked for overlap
-    chunkX = 0
-    chunkZ = 0
-    chunkXchunk = 0
-    chunkZchunk = 0
-    chunkXregion = 0
-    chunkZregion = 0
     
     print(f'[{datetime.datetime.now()}] Trying offsets...')
     for offset in generate_offsets(370):
         # Some random numbers just to test the math, comment out when not needed
         #offset = (53, 7)
+        
+        # These variables are not stored in dicts on purpose !
+        # Dict access somehow halves performance
+        
         offsetX, offsetZ = offset
         
         newXmax = bXmax + offsetX
@@ -279,58 +235,35 @@ def fuse(base : World, other : World):
         overlapZmaxRegion, overlapZmaxChunk = divmod(overlapZmax, sideLen)
         overlapZminRegion, overlapZminChunk = divmod(overlapZmin, sideLen)
         
-        for p in b['pos']:
-            for i in b['pos'][p]:
-            
-                # Offset new coordinates of b
-                b['new'][p][i] = b['pos'][p][i] + offset[i]
-                
-                # Find absolute position of overlap
-                o['pos'][p][i] = min(max(b['new'][p][i], a['pos']['min'][i]), a['pos']['max'][i])
-                
-                # Convert overlap position to region and chunk
-                o['reg'][p][i], o['cnk'][p][i] = divmod(o['pos'][p][i], sidelen)
-        
         # Check all chunks inside the overlapping area
         conflict = False
-        for coords, region in a['map'].items():
-            regionPos['x'], regionPos['z'] = coords
+        for coords in aMap:
+            regionX, regionZ = coords
             if ( 
-                    regionPos['x'] in range(o['reg']['min']['x'], o['reg']['max']['x'] + 1)
-                and regionPos['z'] in range(o['reg']['min']['z'], o['reg']['max']['z'] + 1)
+                    regionX in range(overlapXminRegion, overlapXmaxRegion)
+                and regionZ in range(overlapZminRegion, overlapZmaxRegion)
             ):
                 # If region is on the edge of the overlap, search only relevant chunks
-                for p in search:
-                    for i in search[p]:
-                        if regionPos[i] == o['reg'][p][i]:
-                            search[p][i] = o['cnk'][p][i]
-                        else:
-                            search[p][i] = defaultSearch[p]
+                searchXmax = overlapXmaxChunk if regionX == overlapXmaxRegion else defaultSearchMax
+                searchXmin = overlapXminChunk if regionX == overlapXminRegion else defaultSearchMin
+                searchZmax = overlapZmaxChunk if regionZ == overlapZmaxRegion else defaultSearchMax
+                searchZmin = overlapZminChunk if regionZ == overlapZminRegion else defaultSearchMin
                 
-                for x, row in enumerate(region[search['min']['x'] : search['max']['x'] + 1]):
-                    for z, chunkExists in enumerate(region[x][search['min']['z'] : search['max']['z'] + 1]):
+                for x, row in enumerate(aMap[coords][searchXmin : searchXmax + 1]):
+                    for z, chunkExists in enumerate(row[searchZmin : searchZmax + 1]):
                         iterations += 1
                         if chunkExists:
                             
-                            chunk['pos']['x'] = x
-                            chunk['pos']['z'] = z
+                            # Convert from search-relative to b-relative
+                            realX = x + searchXmin + regionX*sideLen - offsetX
+                            realZ = z + searchZmin + regionZ*sideLen - offsetZ
                             
-                            for i in chunk['pos']:
-                                # This seems to be the issue
-                                # Try unwrapping this as much as possible and see if there's a difference 
-                                
-                                # Convert from search-relative to a-relative
-                                chunk['pos'][i] += search['min'][i] + regionPos[i] * sidelen
-                                
-                                # Convert from a-relative to b-relative
-                                chunk['pos'][i] -= offset[i]
-                                
-                                # Convert to region and chunk
-                                chunk['reg'][i], chunk['cnk'][i] = divmod(chunk['pos'][i], sidelen)
+                            # Convert to region and chunk
+                            realXregion, realXchunk = divmod(realX, sideLen)
+                            realZregion, realZchunk = divmod(realZ, sideLen)
                             
-                            regionIdx = (chunk['reg']['x'], chunk['reg']['z'])
-                            if regionIdx in b['map']:
-                                conflict = b['map'][regionIdx][chunk['cnk']['x']][chunk['cnk']['z']]
+                            if (realXregion, realZregion) in bMap:
+                                conflict = bMap[realXregion, realZregion][realXchunk][realZchunk]
                         if conflict:
                             break
                     if conflict:
