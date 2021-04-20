@@ -22,11 +22,13 @@ def dimension_binary_map(dimension : Dimension):
     for fileName in os.listdir(dimension.folder):
         if os.path.splitext(fileName)[1] == '.mca':
             f = McaFile(os.path.join(dimension.folder, fileName))
-            xRegion, zRegion = f.coords_region
-            xChunk, zChunk = f.coords_chunk
-            x += [xChunk, xChunk + 31]
-            z += [zChunk, zChunk + 31]
-            maps[xRegion, zRegion] = f.binary_map()
+            
+            chunkX, chunkZ = f.coords_chunk
+            x += [chunkX, chunkX + 31]
+            z += [chunkZ, chunkZ + 31]
+            
+            regionX, regionZ = f.coords_region
+            maps[regionX, regionZ] = f.binary_map()
     
     print(f'[{datetime.datetime.now()}] Done !')
     return max(x), min(x), max(z), min(z), maps
