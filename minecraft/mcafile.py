@@ -238,9 +238,17 @@ class McaFile(collections.abc.Sequence):
             self.mmap[index*4 + self.sectorLength : index*4 + self.sectorLength + 4] = timestamp
     
     @classmethod
-    def write_chunk(cls, folder : str, value):
-        """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>"""
+    def write_chunk(cls, folder : str, value, protected = False):
+        """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>
+        If <protected> is True, raise an exception if there is already a chunk there
+        """
         
         x, z = value.coords_chunk
         path, index = cls.find_chunk(folder = folder, x = x, z = z)
-        cls(path)[index] = value
+        
+        file = cls(path)
+        
+        if protected and index in file:
+            raise IOError(f'Cannot overwrite chunk at {x}, {z} in protected mode')
+        
+        file[index] = value
