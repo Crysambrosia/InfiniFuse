@@ -44,6 +44,15 @@ class Dimension(util.Cache):
             
             return self[chunkX, chunkZ][x, y, z]
     
+    def __iter__(self):
+        """A generator that extracts every existing chunk from this dimension"""
+        for fileName in os.listdir(self.folder):
+            if os.path.splitext(fileName)[1] == '.mca':
+                with McaFile(os.path.join(self.folder, fileName)) as f:
+                    for chunk in f:
+                        if chunk is not None:
+                            yield chunk
+    
     def __setitem__(self, key, value):
         """"""
         self.check_key(key)
