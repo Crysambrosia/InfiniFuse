@@ -33,67 +33,150 @@ def fuse(base : World, other : World):
         chunk['']['Level']['zPos'] += netherZchunk
         
         # Update all entity data that stores position
-        for i, entity in enumerate(chunk['']['Level']['Entities']):
-            entity['Pos'][0] += netherXblock
-            entity['Pos'][2] += netherZblock
-            
-            for key in entity['Brain']['memories']:
-                if key in [
-                    'minecraft:home',
-                    'minecraft:job_site',
-                    'minecraft:meeting_point',
-                    'minecraft:potential_job_site'
-                ]:
-                    memory = entity['Brain']['memories'][key]
+        if 'Entities' in chunk['']['Level']:
+            for i, entity in enumerate(chunk['']['Level']['Entities']):
+                entity['Pos'][0] += netherXblock
+                entity['Pos'][2] += netherZblock
                 
-                    if memory['value']['dimension'] == 'minecraft:the_nether':
-                        memory['value']['pos'][0] += netherXblock
-                        memory['value']['pos'][2] += netherZblock
+                for key in entity['Brain']['memories']:
+                    if key in [
+                        'minecraft:home',
+                        'minecraft:job_site',
+                        'minecraft:meeting_point',
+                        'minecraft:potential_job_site'
+                    ]:
+                        memory = entity['Brain']['memories'][key]
+                    
+                        if memory['value']['dimension'] == 'minecraft:the_nether':
+                            memory['value']['pos'][0] += netherXblock
+                            memory['value']['pos'][2] += netherZblock
+                            
+                        elif memory['value']['dimension'] == 'minecraft:overworld':
+                            memory['value']['pos'][0] += overworldXblock
+                            memory['value']['pos'][2] += overworldZblock
                         
-                    elif memory['value']['dimension'] == 'minecraft:overworld':
-                        memory['value']['pos'][0] += overworldXblock
-                        memory['value']['pos'][2] += overworldZblock
-                    
-                    entity['Brain']['memories'][key] = memory
+                        entity['Brain']['memories'][key] = memory
+                
+                for key in entity:
+                
+                    if key in [
+                        'BeamTarget'
+                        'FlowerPos',
+                        'HivePos',
+                        'Leash',
+                        'PatrolTarget',
+                        'WanderTarget'
+                    ]:
+                        entity[key]['X'] += netherXblock
+                        entity[key]['Z'] += netherZblock
+                        
+                    elif key in [
+                        'AX',
+                        'APX',
+                        'BoundX',
+                        'HomePosX',
+                        'SleepingX',
+                        'TileX',
+                        'TravelPosX',
+                        'TreasurePosX'
+                    ]:
+                        entity[key] += netherXblock
+                        
+                    elif key in [
+                        'AZ',
+                        'APZ',
+                        'BoundZ',
+                        'HomePosZ',
+                        'SleepingZ',
+                        'TileZ',
+                        'TravelPosZ',
+                        'TreasurePosZ'
+                    ]:
+                        entity[key] += netherZblock
+                
+                chunk['']['Level']['Entities'][i] = entity
+       
+        # Update tile entities
+        # This does NOT update map IDs yet !
+        if 'TileEntities' in chunk['']['Level']:
+            for i, entity in enumerate(chunk['']['Level']['TileEntities']):
+                entity['x'] += netherXblock
+                entity['z'] += netherZblock
+                
+                for key in entity:
+                    if key in ['ExitPortal', 'FlowerPos']:
+                        entity[key]['X'] += netherXblock
+                        entity[key]['Z'] += netherZblock
+                
+                chunk['']['Level']['TileEntities'][i] = entity
+        
+        # Update TileTicks
+        if 'TileTicks' in chunk['']['Level']:
+            for i, tick in enumerate(chunk['']['Level']['TileTicks']):
+                tick['x'] += netherXblock
+                tick['z'] += netherZblock
             
-            for key in entity:
-            
-                if key in [
-                    'BeamTarget'
-                    'FlowerPos',
-                    'HivePos',
-                    'Leash',
-                    'PatrolTarget',
-                    'WanderTarget'
-                ]:
-                    entity[key]['X'] += netherXblock
-                    entity[key]['Z'] += netherZblock
-                    
-                elif key in [
-                    'AX',
-                    'APX',
-                    'BoundX',
-                    'HomePosX',
-                    'SleepingX',
-                    'TileX',
-                    'TravelPosX',
-                    'TreasurePosX'
-                ]:
-                    entity[key] += netherXblock
-                    
-                elif key in [
-                    'AZ',
-                    'APZ',
-                    'BoundZ',
-                    'HomePosZ',
-                    'SleepingZ',
-                    'TileZ',
-                    'TravelPosZ',
-                    'TreasurePosZ'
-                ]:
-                    entity[key] += netherZblock
-            
-            chunk['']['Level']['Entities'][i] = entity
+                chunk['']['Level']['TileTicks'][i] = tick
+        
+        # Update Structures
+        if 'Structures' in chunk['']['Level']:
+            # Update References
+            # Update Starts
+            if 'Starts' in chunk['']['Level']['Structures']:
+                for startKey in chunk['']['Level']['Structures']['Starts']:
+                    if chunk['']['Level']['Structures']['Starts'][startKey]['id'] != 'INVALID':
+                        start = chunk['']['Level']['Structures']['Starts'][startKey]
+                        
+                        start['BB'][0] += netherXblock
+                        start['BB'][2] += netherZblock
+                        start['BB'][3] += netherXblock
+                        start['BB'][5] += netherZblock
+                        
+                        start['ChunkX'] += netherXchunk
+                        start['ChunkZ'] += netherZchunk
+                        
+                        if 'Children' in start:
+                            for i, child in enumerate(start['Children']):
+                                child['BB'][0] += netherXblock
+                                child['BB'][2] += netherZblock
+                                child['BB'][3] += netherXblock
+                                child['BB'][5] += netherZblock
+                                
+                                for key in child:
+                                    if key == 'Entrances':
+                                        for i in child['Entrances']:
+                                            child['Entrances'][i][0] += netherXblock
+                                            child['Entrances'][i][2] += netherZblock
+                                            child['Entrances'][i][3] += netherXblock
+                                            child['Entrances'][i][5] += netherZblock
+                                        
+                                    elif key == 'junctions':
+                                        for iJunction, junction in enumerate(child['junctions']):
+                                            junction['source_x'] += netherXblock
+                                            junction['source_z'] += netherZblock
+                                            
+                                            child['junctions'][iJunction] = junction
+                                        
+                                    elif key in ['PosX', 'TPX']:
+                                        child[key] += netherXblock
+                                        
+                                    elif key in ['PosZ', 'TPZ']:
+                                        child[key] += netherZblock
+                                
+                                start['Children'][i] = child
+                        
+                        if 'Processed' in start:
+                            for i, process in enumerate(start['Processed']):
+                                process['X'] += netherXchunk
+                                process['Z'] += netherZchunk
+                                start['Processed'][i] = process
+                        
+                        chunk['']['Level']['Structures']['Starts'][startKey] = start
+        # Update LiquidsToBeTicked
+        # Update LiquidTicks
+        # Update PostProcessing
+        # Update ToBeTicked
+
 
 def dimension_binary_map(dimension : Dimension):
     """Map all chunks from <dimension> to a two dimensional array of booleans"""
