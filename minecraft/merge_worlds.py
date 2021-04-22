@@ -2,7 +2,9 @@ from .dimension import Dimension
 from .mcafile import McaFile
 from .world import World
 import datetime
+import minecraft.TAG as TAG
 import os
+import util
 
 # Find offset for map
 # Offset all chunks
@@ -120,12 +122,29 @@ def fuse(base : World, other : World):
         
         # Update Structures
         if 'Structures' in chunk['']['Level']:
+        
             # Update References
+            if 'References' in chunk['']['Level']['Structures']:
+                for key, reference in chunk['']['Level']['Structures']['References'].items():
+                    if reference != []:
+                        for i, coords in enumerate(reference):
+                            x = TAG.Int()
+                            z = TAG.Int()
+                            
+                            x.unsigned = util.get_bits(coords, 0, 32)  + netherXchunk
+                            z.unsigned = util.get_bits(coords, 32, 64) + netherZchunk
+                            
+                            coords.unsigned = util.set_bits(coords, 0, 32, x)
+                            coords.unsigned = util.set_bits(coords, 32, 64, z)
+                            
+                            reference[i] = coords
+                        
+                        chunk['']['Level']['Structures']['References'][key] = reference
+            
             # Update Starts
             if 'Starts' in chunk['']['Level']['Structures']:
-                for startKey in chunk['']['Level']['Structures']['Starts']:
-                    if chunk['']['Level']['Structures']['Starts'][startKey]['id'] != 'INVALID':
-                        start = chunk['']['Level']['Structures']['Starts'][startKey]
+                for key, start in chunk['']['Level']['Structures']['Starts'].items():
+                    if start['id'] != 'INVALID':
                         
                         start['BB'][0] += netherXblock
                         start['BB'][2] += netherZblock
