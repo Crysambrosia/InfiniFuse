@@ -30,4 +30,4 @@ def reverse(n):
 def set_bits(n, start, end, value):
     """Set bits [<start>:<end>] of <n> to <value> and return <n>"""
     mask = ( 1 << end ) - ( 1 << start ) 
-    return (int(n) & ~mask) | (value << start) & mask
+    return (int(n) & ~mask) | (int(value) << start) & mask
