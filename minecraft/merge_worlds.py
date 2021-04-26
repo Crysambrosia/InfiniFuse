@@ -5,6 +5,7 @@ import datetime
 import minecraft.TAG as TAG
 import os
 import random
+import struct
 import util
 
 # Find offset for map
@@ -67,8 +68,6 @@ def find_offsets(a : World, b : World):
 def fuse(base : World, other : World):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
     
-    offset = find_offsets(a = base, b = other)
-    
     netherXchunk, netherZchunk = find_offsets(a = base, b = other)
     netherXblock = netherXchunk * 16
     netherZblock = netherZchunk * 16
@@ -79,176 +78,25 @@ def fuse(base : World, other : World):
     overworldXblock = overworldXchunk * 16
     overworldZchunk = overworldZchunk * 16
     
-    
+    print(f'[{datetime.datetime.now()}] Transferring the nether...')
     for chunk in other.dimensions['minecraft:the_nether']:
-        chunk['']['Level']['xPos'] += netherXchunk
-        chunk['']['Level']['zPos'] += netherZchunk
-        
-        # Update all entity data that stores position
-        if 'Entities' in chunk['']['Level']:
-            for i, entity in enumerate(chunk['']['Level']['Entities']):
-                entity['Pos'][0] += netherXblock
-                entity['Pos'][2] += netherZblock
-                
-                for key in entity['Brain']['memories']:
-                    if key in [
-                        'minecraft:home',
-                        'minecraft:job_site',
-                        'minecraft:meeting_point',
-                        'minecraft:potential_job_site'
-                    ]:
-                        memory = entity['Brain']['memories'][key]
-                    
-                        if memory['value']['dimension'] == 'minecraft:the_nether':
-                            memory['value']['pos'][0] += netherXblock
-                            memory['value']['pos'][2] += netherZblock
-                            
-                        elif memory['value']['dimension'] == 'minecraft:overworld':
-                            memory['value']['pos'][0] += overworldXblock
-                            memory['value']['pos'][2] += overworldZblock
-                        
-                        entity['Brain']['memories'][key] = memory
-                
-                for key in entity:
-                
-                    if key in [
-                        'BeamTarget'
-                        'FlowerPos',
-                        'HivePos',
-                        'Leash',
-                        'PatrolTarget',
-                        'WanderTarget'
-                    ]:
-                        entity[key]['X'] += netherXblock
-                        entity[key]['Z'] += netherZblock
-                        
-                    elif key in [
-                        'AX',
-                        'APX',
-                        'BoundX',
-                        'HomePosX',
-                        'SleepingX',
-                        'TileX',
-                        'TravelPosX',
-                        'TreasurePosX'
-                    ]:
-                        entity[key] += netherXblock
-                        
-                    elif key in [
-                        'AZ',
-                        'APZ',
-                        'BoundZ',
-                        'HomePosZ',
-                        'SleepingZ',
-                        'TileZ',
-                        'TravelPosZ',
-                        'TreasurePosZ'
-                    ]:
-                        entity[key] += netherZblock
-                
-                chunk['']['Level']['Entities'][i] = entity
-       
-        # Update tile entities
-        # This does NOT update map IDs yet !
-        if 'TileEntities' in chunk['']['Level']:
-            for i, entity in enumerate(chunk['']['Level']['TileEntities']):
-                entity['x'] += netherXblock
-                entity['z'] += netherZblock
-                
-                for key in entity:
-                    if key in ['ExitPortal', 'FlowerPos']:
-                        entity[key]['X'] += netherXblock
-                        entity[key]['Z'] += netherZblock
-                
-                chunk['']['Level']['TileEntities'][i] = entity
-        
-        # Update TileTicks
-        if 'TileTicks' in chunk['']['Level']:
-            for i, tick in enumerate(chunk['']['Level']['TileTicks']):
-                tick['x'] += netherXblock
-                tick['z'] += netherZblock
-            
-                chunk['']['Level']['TileTicks'][i] = tick
-        
-        # Update LiquidTicks
-        if 'LiquidTicks' in chunk['']['Level']:
-            for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
-                tick['x'] += netherXblock
-                tick['z'] += netherZblock
-            
-                chunk['']['Level']['LiquidTicks'][i] = tick
-        
-        # Update Structures
-        if 'Structures' in chunk['']['Level']:
-        
-            # Update References
-            if 'References' in chunk['']['Level']['Structures']:
-                for key, reference in chunk['']['Level']['Structures']['References'].items():
-                    if reference != []:
-                        for i, coords in enumerate(reference):
-                            x = TAG.Int()
-                            z = TAG.Int()
-                            
-                            x.unsigned = util.get_bits(coords, 0, 32)  + netherXchunk
-                            z.unsigned = util.get_bits(coords, 32, 64) + netherZchunk
-                            
-                            coords.unsigned = util.set_bits(coords, 0, 32, x)
-                            coords.unsigned = util.set_bits(coords, 32, 64, z)
-                            
-                            reference[i] = coords
-                        
-                        chunk['']['Level']['Structures']['References'][key] = reference
-            
-            # Update Starts
-            if 'Starts' in chunk['']['Level']['Structures']:
-                for key, start in chunk['']['Level']['Structures']['Starts'].items():
-                    if start['id'] != 'INVALID':
-                        
-                        start['BB'][0] += netherXblock
-                        start['BB'][2] += netherZblock
-                        start['BB'][3] += netherXblock
-                        start['BB'][5] += netherZblock
-                        
-                        start['ChunkX'] += netherXchunk
-                        start['ChunkZ'] += netherZchunk
-                        
-                        if 'Children' in start:
-                            for i, child in enumerate(start['Children']):
-                                child['BB'][0] += netherXblock
-                                child['BB'][2] += netherZblock
-                                child['BB'][3] += netherXblock
-                                child['BB'][5] += netherZblock
-                                
-                                for key in child:
-                                    if key == 'Entrances':
-                                        for i in child['Entrances']:
-                                            child['Entrances'][i][0] += netherXblock
-                                            child['Entrances'][i][2] += netherZblock
-                                            child['Entrances'][i][3] += netherXblock
-                                            child['Entrances'][i][5] += netherZblock
-                                        
-                                    elif key == 'junctions':
-                                        for iJunction, junction in enumerate(child['junctions']):
-                                            junction['source_x'] += netherXblock
-                                            junction['source_z'] += netherZblock
-                                            
-                                            child['junctions'][iJunction] = junction
-                                        
-                                    elif key in ['PosX', 'TPX']:
-                                        child[key] += netherXblock
-                                        
-                                    elif key in ['PosZ', 'TPZ']:
-                                        child[key] += netherZblock
-                                
-                                start['Children'][i] = child
-                        
-                        if 'Processed' in start:
-                            for i, process in enumerate(start['Processed']):
-                                process['X'] += netherXchunk
-                                process['Z'] += netherZchunk
-                                start['Processed'][i] = process
-                        
-                        chunk['']['Level']['Structures']['Starts'][startKey] = start
+        move_chunk(
+            chunk = chunk, 
+            folder = base.dimensions['minecraft:the_nether'].folder, 
+            offsetXchunk = netherXchunk,
+            offsetZchunk = netherZchunk
+            )
+    
+    print(f'[{datetime.datetime.now()}] Transferring the overworld...')
+    for chunk in other.dimensions['minecraft:overworld']:
+        move_chunk(
+            chunk = chunk, 
+            folder = base.dimensions['minecraft:overworld'].folder, 
+            offsetXchunk = overworldXchunk,
+            offsetZchunk = overworldZchunk
+            )
+    
+    print(f'[{datetime.datetime.now()}] Transfer done !')
 
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
@@ -263,8 +111,10 @@ def generate_offsets(maxRadius : int = 3_750_000):
                 yield x, -radius
                 yield x,  radius
 
-def offset_chunk(chunk, offsetXchunk, offsetZchunk):
-    """Offset a chunk by <offsetX> <offsetZ> chunks on the grid"""
+def move_chunk(chunk, folder : str, offsetXchunk : int, offsetZchunk : int):
+    """Offset a chunk by <offsetX> <offsetZ> chunks on the grid
+    """
+    
     offsetXblock = offsetXchunk * 16
     offsetZblock = offsetZchunk * 16
     
@@ -380,11 +230,16 @@ def offset_chunk(chunk, offsetXchunk, offsetZchunk):
                         x = TAG.Int()
                         z = TAG.Int()
                         
-                        x.unsigned = util.get_bits(coords, 0, 32)  + offsetXchunk
-                        z.unsigned = util.get_bits(coords, 32, 64) + offsetZchunk
-                        
-                        coords.unsigned = util.set_bits(coords, 0, 32, x)
-                        coords.unsigned = util.set_bits(coords, 32, 64, z)
+                        x.unsigned = util.get_bits(coords,  0, 32)
+                        z.unsigned = util.get_bits(coords, 32, 64)
+                        x += offsetXchunk
+                        z += offsetZchunk
+                        try:
+                            coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
+                            coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
+                        except struct.error as e:
+                            print(x, z, coords)
+                            raise e
                         
                         reference[i] = coords
                     
@@ -392,7 +247,7 @@ def offset_chunk(chunk, offsetXchunk, offsetZchunk):
         
         # Update Starts
         if 'Starts' in chunk['']['Level']['Structures']:
-            for key, start in chunk['']['Level']['Structures']['Starts'].items():
+            for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
                 if start['id'] != 'INVALID':
                     
                     start['BB'][0] += offsetXblock
@@ -441,7 +296,7 @@ def offset_chunk(chunk, offsetXchunk, offsetZchunk):
                     
                     chunk['']['Level']['Structures']['Starts'][startKey] = start
     
-    return chunk
+    McaFile.write_chunk(folder = folder, value = chunk, protected = True)
 
 def offset_conflicts(a, b, offset):
     """Check for conflicts if <b> was fused into <a> at <offset>"""

@@ -82,8 +82,16 @@ class McaFile(collections.abc.Sequence):
         
         if header is None:
             # If this chunk didn't exist in this file, find smallest free offset to save it
-            offset = max(2, *[sum(self.get_header(i)) for i in range(len(self))])
+            
+            offsets = [0]
+            for i in range(len(self)):
+                header = self.get_header(i)
+                if header is not None:
+                    offsets.append(header['offset'] + header['sectorCount'])
+            
+            offset = max(2, *offsets)
             oldSectorCount = 0
+            
         else:
             offset = header['offset']
             oldSectorCount = header['sectorCount']
