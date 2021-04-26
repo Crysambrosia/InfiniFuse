@@ -120,6 +120,14 @@ def fuse(base : World, other : World):
             
                 chunk['']['Level']['TileTicks'][i] = tick
         
+        # Update LiquidTicks
+        if 'LiquidTicks' in chunk['']['Level']:
+            for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
+                tick['x'] += netherXblock
+                tick['z'] += netherZblock
+            
+                chunk['']['Level']['LiquidTicks'][i] = tick
+        
         # Update Structures
         if 'Structures' in chunk['']['Level']:
         
@@ -191,10 +199,9 @@ def fuse(base : World, other : World):
                                 start['Processed'][i] = process
                         
                         chunk['']['Level']['Structures']['Starts'][startKey] = start
-        # Update LiquidsToBeTicked
-        # Update LiquidTicks
+        
+
         # Update PostProcessing
-        # Update ToBeTicked
 
 
 def dimension_binary_map(dimension : Dimension):
