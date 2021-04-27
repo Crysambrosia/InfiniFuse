@@ -29,7 +29,7 @@ class Cache(ABC):
     
     def discard_all(self):
         """Discard all cache entries"""
-        self.cache = {}
+        self._cache = {}
     
     def load(self, key):
         """Load data for entry <key> into cache"""
