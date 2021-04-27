@@ -34,7 +34,7 @@ class Cache(ABC):
     def load(self, key):
         """Load data for entry <key> into cache"""
         key = self.convert_key(key = key)
-        self[key] = self.read(key)
+        self._cache[key] = self.read(key)
 
     @abstractmethod
     def read(self, key):
@@ -48,13 +48,13 @@ class Cache(ABC):
         if key not in self._cache:
             return
         
-        self.write(key = key, value = self[key])
+        self.write(key = key, value = self._cache[key])
         self.discard(key)
     
     def save_all(self):
         """Save all changes in self._cache"""
         for key in self._cache:
-            self.write(key = key, value = self[key])
+            self.write(key = key, value = self._cache[key])
         
         self.discard_all()
     
