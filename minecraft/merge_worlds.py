@@ -149,8 +149,9 @@ def fusion_map(base : str, other : str):
                 
                 if (realXregion, realZregion) not in fuseMap:
                     fuseMap[realXregion, realZregion] = [[0 for x in range(sideLen)] for z in range(sideLen)]
-                    
-                fuseMap[realXregion, realZregion][realXchunk][realZchunk] += 1
+                
+                if chunk:
+                    fuseMap[realXregion, realZregion][realXchunk][realZchunk] += 1
     
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
         f.write(util.makeMapPNG(fuseMap, fuseXmax, fuseXmin, fuseZmax, fuseZmin))
@@ -400,8 +401,8 @@ def offset_conflicts(a, b, offset):
         regionX, regionZ = coords
         
         if ( 
-                regionX in range(overlapXminRegion, overlapXmaxRegion)
-            and regionZ in range(overlapZminRegion, overlapZmaxRegion)
+                regionX in range(overlapXminRegion, overlapXmaxRegion + 1)
+            and regionZ in range(overlapZminRegion, overlapZmaxRegion + 1)
         ):
             # If region is on the edge of the overlap, search only relevant chunks
             searchXmax = overlapXmaxChunk if regionX == overlapXmaxRegion else defaultSearchMax
