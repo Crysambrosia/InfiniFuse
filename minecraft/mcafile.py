@@ -188,7 +188,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
                 raise TypeError(f'Indices must be int or sequence of 2 coords, not {type(key)}')
         
         if key > len(self):
-            raise keyError(f'Key must be 0-{len(self)}, not {key}')
+            raise IndexError(f'Key must be 0-{len(self)}, not {key}')
         
         return key
    
