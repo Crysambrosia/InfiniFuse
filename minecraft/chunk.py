@@ -33,9 +33,9 @@ class Chunk(TAG.Compound, util.Cache):
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            util.Cache.__getitem__(self, key)
+            return util.Cache.__getitem__(self, key)
         else:
-            TAG.Compound.__getitem__(self, key)
+            return TAG.Compound.__getitem__(self, key)
     
     def __repr__(self):
         """Shows chunk coords"""
@@ -67,11 +67,11 @@ class Chunk(TAG.Compound, util.Cache):
         x, y, z = [int(i) for i in key]
         
         # Raise an exception if <x> <y> <z> are not valid chunk-relative coords
-        if not 0 <= x <= 15:
+        if x not in range(16):
             raise KeyError(f'Invalid chunk-relative x {x} (must be 0-15)')
-        elif not 0 <= y <= 255:
+        elif y not in range(256):
             raise KeyError(f'Invalid chunk-relative y {y} (must be 0-255)')
-        elif not 0 <= z <= 15:
+        elif z not in range(16):
             raise KeyError(f'Invalid chunk-relative z {z} (must be 0-15)')
         
         return x, y, z
@@ -101,10 +101,9 @@ class Chunk(TAG.Compound, util.Cache):
         
         return unit, start, end
 
-    @staticmethod
-    def find_section(key):
+    def find_section(self, key):
         """Return block and section indexes of block at coords in key"""
-        x, y, z = Chunk.convert_key(key)
+        x, y, z = self.convert_key(key)
         sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
