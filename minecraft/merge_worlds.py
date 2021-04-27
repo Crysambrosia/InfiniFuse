@@ -72,14 +72,9 @@ def fuse(base : str, other : str):
     b = World.from_saves(other)
     
     netherXchunk, netherZchunk = find_offsets(a, b)
-    netherXblock = netherXchunk * 16
-    netherZblock = netherZchunk * 16
     
     overworldXchunk = netherXchunk * 8
     overworldZchunk = netherZchunk * 8
-    
-    overworldXblock = overworldXchunk * 16
-    overworldZchunk = overworldZchunk * 16
     
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
     for chunk in b.dimensions['minecraft:the_nether']:
@@ -109,7 +104,7 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     offsetX, offsetZ = find_offsets(a, b)
     if dimension == 'minecraft:overworld':
         offsetX *= 8
-        offsetZ += 8
+        offsetZ *= 8
     
     aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions[dimension])
     bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions[dimension])
