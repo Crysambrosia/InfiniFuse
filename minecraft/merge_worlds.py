@@ -68,8 +68,8 @@ def find_offsets(a : World, b : World):
 def fuse(base : str, other : str):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
     
-    a = World.from_saves(baseName)
-    b = World.from_saves(otherName)
+    a = World.from_saves(base)
+    b = World.from_saves(other)
     
     netherXchunk, netherZchunk = find_offsets(a, b)
     netherXblock = netherXchunk * 16
@@ -101,6 +101,61 @@ def fuse(base : str, other : str):
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
+def fusion_map(base : str, other : str):
+    """Create a PNG idea of how two maps are going to be fused"""
+    a = World.from_saves(base)
+    b = World.from_saves(other)
+    
+    offsetX, offsetZ = find_offsets(a, b)
+    aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions['minecraft:the_nether'])
+    bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions['minecraft:the_nether'])
+    
+    print(aXmin, aZmin)
+    
+    bXmax += offsetX
+    bXmin += offsetX
+    bZmax += offsetZ
+    bZmin += offsetZ
+    
+    print(bXmin, bZmin)
+    
+    fuseXmax = max(aXmax, bXmax)
+    fuseXmin = min(aXmin, bXmin)
+    fuseZmax = max(aZmax, bZmax)
+    fuseZmin = min(aZmin, bZmin)
+    
+    print(fuseXmin, fuseZmin)
+    
+    sideLen = McaFile.sideLength
+    
+    fuseMap = {}
+    for coords, region in aMap.items():
+        fuseMap[coords] = []
+        for row in region:
+            fuseRow = []
+            for chunk in row:
+                if chunk:
+                    fuseRow.append(1)
+                else:
+                    fuseRow.append(0)
+            fuseMap[coords].append(fuseRow)
+    
+    for coords, region in bMap.items():
+        regionX, regionZ = coords
+        for x, row in enumerate(region):
+            for z, chunk in enumerate(row):
+                realXregion, realXchunk = divmod(x + offsetX + regionX*sideLen, sideLen)
+                realZregion, realZchunk = divmod(z + offsetZ + regionZ*sideLen, sideLen)
+                
+                if (realXregion, realZregion) not in fuseMap:
+                    fuseMap[realXregion, realZregion] = [[0 for x in range(sideLen)] for z in range(sideLen)]
+                    
+                fuseMap[realXregion, realZregion][realXchunk][realZchunk] += 1
+    
+    with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
+        f.write(util.makeMapPNG(fuseMap, fuseXmax, fuseXmin, fuseZmax, fuseZmin))
+    
+    
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
     for radius in range(maxRadius):

@@ -49,19 +49,16 @@ def makeGreyPNG(data, height = None, width = None):
         png += I4(0) + block + I4(zlib.crc32(block))
     return png
 
-def makeBWPNG(data, height = None, width = None):
+def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
+
     def I1(value):
         return struct.pack("!B", value & (2**8-1))
     def I4(value):
         return struct.pack("!I", value & (2**32-1))
-    # compute width&height from data if not explicit
-    if height is None:
-        height = len(data) # rows
-    if width is None:
-        width = 0
-        for row in data:
-            if width < len(row):
-                width = len(row)
+
+    height = zMax - zMin
+    width  = xMax - xMin
+    
     # generate these chunks depending on image type
     makeIHDR = True
     makeIDAT = True
@@ -80,13 +77,32 @@ def makeBWPNG(data, height = None, width = None):
         png += I4(len(IHDR)) + block + I4(zlib.crc32(block))
     if makeIDAT:
         raw = b""
-        for z in range(height):
+        x = xMin
+        for z in range(zMin, zMax):
             raw += b"\0" # no filter for this scanline
-            for x in range(width):
-                c = b"\0" # default black pixel
-                if data[z][x] == True:
-                    c = I1(255)
-                raw += c
+            for x in range(xMin, xMax):
+                regionX, chunkX = divmod(x, 32)
+                regionZ, chunkZ = divmod(z, 32)
+                if (regionX, regionZ) in data:
+                    raw += I1(data[regionX, regionZ][chunkX][chunkZ] * 127)
+                else:
+                    raw += b'\0'
+                
+            '''while True:
+                # This is not a for loop because we may need to skip ahead, which a range does
+                # not allow
+                regionX, chunkX = divmod(x, 32)
+                regionZ, chunkZ = divmod(z, 32)
+                if (regionX, regionZ) not in data:
+                    raw += b'\0' * 32
+                    x += 32
+                else:
+                    raw += I1(data[regionX, regionZ][chunkX][chunkZ] * 127)
+                    x += 1
+                
+                if x >= xMax:
+                    break'''
+        
         compressor = zlib.compressobj()
         compressed = compressor.compress(raw)
         compressed += compressor.flush() #!!
