@@ -24,24 +24,18 @@ class Chunk(TAG.Compound, util.Cache):
         """NBT data as a TAG.Compound"""
 
     def __delitem__(self, key):
-        """Remove a block from cache if <key> is a tuple, otherwise default to super"""
+        """Delete <key> from cache if <key> is a tuple, else default to TAG.Compound behavior"""
         if isinstance(key, tuple) and len(key) == 3:
-            key = self.validate_coords(key)
-            del self._cache[key]
+            util.Cache.__delitem__(self, key)
         else:
-            super().__delitem__(key)
+            TAG.Compound.__delitem__(self, key)
 
     def __getitem__(self, key):
         """Return a block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            key = self.validate_coords(key)
-            
-            if key not in self._cache:
-                self.load(key)
-            
-            return self._cache[key]
+            util.Cache.__getitem__(self, key)
         else:
-            return super().__getitem__(key)
+            TAG.Compound.__getitem__(self, key)
     
     def __repr__(self):
         """Shows chunk coords"""
@@ -53,10 +47,9 @@ class Chunk(TAG.Compound, util.Cache):
     def __setitem__(self, key, value):
         """Set block if <key> is a tuple, otherwise default to super"""
         if isinstance(key, tuple) and len(key) == 3:
-            key = self.validate_coords(key)
-            self._cache[key] = BlockState.create_valid(value)
+            util.Cache.__setitem__(self, key, value)
         else:
-            super().__setitem__(key, value)
+            TAG.Compound.__setitem__(self, key, value)
     
     @property
     def coords(self):
@@ -68,21 +61,24 @@ class Chunk(TAG.Compound, util.Cache):
         """Chunk grid coords of this chunk"""
         return (int(self['']['Level']['xPos']), int(self['']['Level']['zPos']))
     
-    @staticmethod
-    def validate_coords(coords : tuple):
+    def convert_key(self, key : tuple):
         """Return <x> <y> <z> as ints if they are valid chunk-relative coords"""
         
-        x, y, z = [int(i) for i in coords]
+        x, y, z = [int(i) for i in key]
         
         # Raise an exception if <x> <y> <z> are not valid chunk-relative coords
         if not 0 <= x <= 15:
-            raise ValueError(f'Invalid chunk-relative x {x} (must be 0-15)')
+            raise KeyError(f'Invalid chunk-relative x {x} (must be 0-15)')
         elif not 0 <= y <= 255:
-            raise ValueError(f'Invalid chunk-relative y {y} (must be 0-255)')
+            raise KeyError(f'Invalid chunk-relative y {y} (must be 0-255)')
         elif not 0 <= z <= 15:
-            raise ValueError(f'Invalid chunk-relative z {z} (must be 0-15)')
+            raise KeyError(f'Invalid chunk-relative z {z} (must be 0-15)')
         
         return x, y, z
+    
+    def convert_value(self, value):
+        """Convert <value> to a valid BlockState"""
+        return BlockState.create_valid(value)
     
     @staticmethod
     def find_block(section, blockID):
@@ -108,12 +104,12 @@ class Chunk(TAG.Compound, util.Cache):
     @staticmethod
     def find_section(key):
         """Return block and section indexes of block at coords in key"""
-        x, y, z = Chunk.validate_coords(key)
+        x, y, z = Chunk.convert_key(key)
         sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
-    def load(self, key):
-        """Load BlockState at <x> <y> <z> to cache"""
+    def read(self, key):
+        """Read BlockState at coords in <key>"""
         sectionID, blockID = self.find_section(key)
         
         block = BlockState.create_valid()
@@ -133,20 +129,15 @@ class Chunk(TAG.Compound, util.Cache):
                     block = BlockState(section['Palette'][paletteID])
                 break
         
-        self[key] = block
+        return block
 
     def to_bytes(self):
         """Return NBT data as a bytearray. Will save all cached changes"""
         self.save_all()
         return super().to_bytes()
 
-    def save(self, key):
-        """save block at <key> from cache to self.value"""
-        
-        if key not in self._cache:
-            return
-        
-        newBlock = self[key]
+    def write(self, key, value):
+        """Save block <value> at <key> from cache to self.value"""
         
         sectionID, blockID = self.find_section(key)
         
@@ -162,7 +153,7 @@ class Chunk(TAG.Compound, util.Cache):
             section['Palette'] = TAG.List([TAG.Compound(BlockState.create_valid())])
             section['BlockStates'] = TAG.Long_Array([TAG.Long(0) for _ in range(256)])
         
-        if newBlock not in section['Palette']:
+        if value not in section['Palette']:
         
             paletteIsFull = max(4, len(section['Palette']).bit_length()) % 2 > 0
             
@@ -178,7 +169,7 @@ class Chunk(TAG.Compound, util.Cache):
                 unitType = section['BlockStates'].elementType
                 section['BlockStates'] = section['BlockStates'].__class__()
             
-            section['Palette'].append(newBlock)
+            section['Palette'].append(value)
             
             if paletteIsFull:
             
@@ -203,6 +194,5 @@ class Chunk(TAG.Compound, util.Cache):
             n = section['BlockStates'][unit],
             start = start,
             end = end, 
-            value = section['Palette'].index(newBlock)
+            value = section['Palette'].index(value)
         )
-        del self[key]

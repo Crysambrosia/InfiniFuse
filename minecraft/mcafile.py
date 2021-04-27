@@ -5,8 +5,9 @@ import math
 import mmap
 import os
 import time
+import util
 
-class McaFile(collections.abc.Sequence):
+class McaFile(collections.abc.Sequence, util.Cache):
     """Interface for .mca files
     
     For use as a context manager !
@@ -17,6 +18,9 @@ class McaFile(collections.abc.Sequence):
     
     def __init__(self, path):
         
+        self._cache = {}
+        """Cache containing loaded chunks"""
+        
         self._file = None
         """File Object of file at self.path (after __enter__)"""
         
@@ -26,9 +30,9 @@ class McaFile(collections.abc.Sequence):
         self.path = path
         """Path of file for IO"""
     
-    def __contains__(self, index):
-        """Whether chunk <index> contains any data"""
-        return self.get_header(index) is not None
+    def __contains__(self, key):
+        """Whether chunk <key> contains any data"""
+        return self.get_header(key) is not None
     
     def __del__(self):
         self.__exit__()
@@ -52,14 +56,88 @@ class McaFile(collections.abc.Sequence):
         if self._mmap is not None:
             self._mmap.__exit__(exc_type, exc_value, traceback)
     
-    def __delitem__(self, index):
-        """Delete chunk <index>, will be generated again next time the game runs"""
-        self[index] = b''
+    def __len__(self):
+        return self.sideLength ** 2
     
-    def __getitem__(self, index):
-        """Get data of chunk <index>"""
+    def __repr__(self):
+        return f'McaFile at {self.path}'
+    
+    def binary_map(self):
+        """Return a table of booleans, representing whether a chunk exists or not"""
+        length = self.sideLength
+        return [[self.chunk_key(x, z) in self for z in range(length)] for x in range(length)]
+   
+    @classmethod
+    def chunk_exists(cls, folder : str, x : int, z : int):
+    
+        path, key = cls.find_chunk(folder, x, z)
         
-        header = self.get_header(index)
+        if not os.path.exists(path):
+            return False
+        else:
+            return key in cls(path)
+    
+    @classmethod
+    def chunk_key(cls, xChunk, zChunk):
+        """Return key of chunk based on its region-relative coordinates"""
+        return cls.sideLength * zChunk + xChunk
+    
+    @classmethod
+    def find_chunk(cls, folder : str, x : int, z : int):
+        """Return containing file and key of chunk at <x> <z>"""
+        
+        xRegion, xChunk = divmod(x, cls.sideLength)
+        zRegion, zChunk = divmod(z, cls.sideLength)
+        
+        path = os.path.join(folder, f'r.{xRegion}.{zRegion}.mca')
+        key = cls.chunk_key(xChunk = xChunk, zChunk = zChunk)
+        
+        return path, key
+    
+    def get_header(self, key):
+        """Return header info of chunk <key> or None if it does not exist"""
+        
+        key = self.convert_key(key)
+        if not os.path.exists(self.path):
+            return None
+        
+        offset = int.from_bytes(self.mmap[key*4 : key*4 + 3], byteorder = 'big')
+        sectorCount = self.mmap[key*4 + 3]
+        timestamp = int.from_bytes(
+            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4],
+            byteorder = 'big'
+        )
+        
+        if offset < 2 or sectorCount <= 0:
+            return None
+        else:
+            return {'offset' : offset, 'sectorCount' : sectorCount, 'timestamp' : timestamp}
+    
+    @classmethod
+    def read_chunk(cls, folder : str, x : int, z : int):
+    
+        path, key = cls.find_chunk(folder, x, z)
+        return cls(path)[key]
+    
+    @property
+    def coords(self):
+        """Coords of origin block of this file"""
+        return tuple(i * 16 for i in self.coords_chunk)
+    
+    @property
+    def coords_chunk(self):
+        """Chunk grid coords of origin chunk of this file (16x16 blocks)"""
+        return tuple(i * self.sideLength for i in self.coords_region)
+    
+    @property
+    def coords_region(self):
+        """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
+        _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
+        return (int(regionX), int(regionZ))
+    
+    def read(self, key):
+        """Return data for chunk <key>"""
+        header = self.get_header(key)
         
         if header is None:
             return None
@@ -71,14 +149,50 @@ class McaFile(collections.abc.Sequence):
         
         return Chunk.from_bytes(decompress(data, compression)[0])
     
-    def __len__(self):
-        return self.sideLength ** 2
+    @property
+    def mmap(self):
+        if self._mmap is None:
+            self.__enter__()
+        return self._mmap
     
-    def __setitem__(self, index, value):
-        """Save this chunk <index> to file at self.path, commit all cache changes"""
+    def set_header(self, 
+        key : int, 
+        offset : int = None, 
+        sectorCount : int = None,
+        timestamp : int = None
+    ):
+        """Set <offset>, <sectorCount> and <timestamp> of chunk <key>"""
+        self.convert_key(key)
+        
+        if offset is not None:
+            self.mmap[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
+        
+        if sectorCount is not None:
+            self.mmap[key*4 + 3] = sectorCount
+        
+        if timestamp is not None:
+            timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
+            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
+
+    def convert_key(self, key):
+        if not isinstance(key, int):
+            raise TypeError(f'Indices must be int, not {type(key)}')
+        elif key > len(self):
+            raise keyError(f'key must be 0-{len(self)}, not {key}')
+        return key
+   
+    def convert_value(self, value):
+        if not isinstance(value, Chunk):
+            raise TypeError(f'Value must be a Chunk, not {value}')
+        return value
+   
+    def write(self, key, value):
+        """Save <value> as data for entry <key>"""
+        
+        value = self.convert_value(value)
         
         # Get header info
-        header = self.get_header(index)
+        header = self.get_header(key)
         
         if header is None:
             # If this chunk didn't exist in this file, find smallest free offset to save it
@@ -124,7 +238,7 @@ class McaFile(collections.abc.Sequence):
         
         # Write header
         self.set_header(
-            index, 
+            key, 
             offset = offset, 
             sectorCount = newSectorCount,
             timestamp = int(time.time())
@@ -137,114 +251,6 @@ class McaFile(collections.abc.Sequence):
         self.mmap[offset + 4] = compression
         self.mmap[offset + 5 : offset + length + 4] = data
     
-    def __repr__(self):
-        return f'McaFile at {self.path}'
-    
-    def binary_map(self):
-        """Return a table of booleans, representing whether a chunk exists or not"""
-        length = self.sideLength
-        return [[self.chunk_index(x, z) in self for z in range(length)] for x in range(length)]
-    
-    def check_index(self, index):
-        """Raise an exception if <index> is invalid for this file"""
-        if not isinstance(index, int):
-            raise TypeError(f'Indices must be int, not {type(index)}')
-        elif index > len(self):
-            raise IndexError(f'Index must be 0-{len(self)}, not {index}')
-   
-    @classmethod
-    def chunk_exists(cls, folder : str, x : int, z : int):
-    
-        path, index = cls.find_chunk(folder, x, z)
-        
-        if not os.path.exists(path):
-            return False
-        else:
-            return index in cls(path)
-    
-    @classmethod
-    def chunk_index(cls, xChunk, zChunk):
-        """Return index of chunk based on its region-relative coordinates"""
-        return cls.sideLength * zChunk + xChunk
-    
-    @classmethod
-    def find_chunk(cls, folder : str, x : int, z : int):
-        """Return containing file and index of chunk at <x> <z>"""
-        
-        xRegion, xChunk = divmod(x, cls.sideLength)
-        zRegion, zChunk = divmod(z, cls.sideLength)
-        
-        path = os.path.join(folder, f'r.{xRegion}.{zRegion}.mca')
-        index = cls.chunk_index(xChunk = xChunk, zChunk = zChunk)
-        
-        return path, index
-    
-    def get_header(self, index):
-        """Return header info of chunk <index> or None if it does not exist"""
-        
-        self.check_index(index)
-        if not os.path.exists(self.path):
-            return None
-        
-        offset = int.from_bytes(self.mmap[index*4 : index*4 + 3], byteorder = 'big')
-        sectorCount = self.mmap[index*4 + 3]
-        timestamp = int.from_bytes(
-            self.mmap[index*4 + self.sectorLength : index*4 + self.sectorLength + 4],
-            byteorder = 'big'
-        )
-        
-        if offset < 2 or sectorCount <= 0:
-            return None
-        else:
-            return {'offset' : offset, 'sectorCount' : sectorCount, 'timestamp' : timestamp}
-    
-    @classmethod
-    def read_chunk(cls, folder : str, x : int, z : int):
-    
-        path, index = cls.find_chunk(folder, x, z)
-        return cls(path)[index]
-    
-    @property
-    def coords(self):
-        """Coords of origin block of this file"""
-        return tuple(i * 16 for i in self.coords_chunk)
-    
-    @property
-    def coords_chunk(self):
-        """Chunk grid coords of origin chunk of this file (16x16 blocks)"""
-        return tuple(i * self.sideLength for i in self.coords_region)
-    
-    @property
-    def coords_region(self):
-        """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
-        _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
-        return (int(regionX), int(regionZ))
-    
-    @property
-    def mmap(self):
-        if self._mmap is None:
-            self.__enter__()
-        return self._mmap
-    
-    def set_header(self, 
-        index : int, 
-        offset : int = None, 
-        sectorCount : int = None,
-        timestamp : int = None
-    ):
-        """Set <offset>, <sectorCount> and <timestamp> of chunk <index>"""
-        self.check_index(index)
-        
-        if offset is not None:
-            self.mmap[index*4 : index*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
-        
-        if sectorCount is not None:
-            self.mmap[index*4 + 3] = sectorCount
-        
-        if timestamp is not None:
-            timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
-            self.mmap[index*4 + self.sectorLength : index*4 + self.sectorLength + 4] = timestamp
-    
     @classmethod
     def write_chunk(cls, folder : str, value, protected = False):
         """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>
@@ -252,11 +258,11 @@ class McaFile(collections.abc.Sequence):
         """
         
         x, z = value.coords_chunk
-        path, index = cls.find_chunk(folder = folder, x = x, z = z)
+        path, key = cls.find_chunk(folder = folder, x = x, z = z)
         
         file = cls(path)
         
-        if protected and index in file:
+        if protected and key in file:
             raise IOError(f'Cannot overwrite chunk at {x}, {z} in protected mode')
         
-        file[index] = value
+        file[key] = value

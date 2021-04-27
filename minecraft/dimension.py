@@ -28,14 +28,8 @@ class Dimension(util.Cache):
     
     def __getitem__(self, key):
         """Return a chunk from two coords, and a block from three"""
-        self.check_key(key)
-        
         if len(key) == 2:
-        
-            if key not in self._cache:
-                self.load(key)
-            
-            return self._cache[key]
+            util.Cache.__getitem__(self, key)
             
         elif len(key) == 3:
             x, y, z = key
@@ -70,15 +64,16 @@ class Dimension(util.Cache):
             chunkZ, z = divmod(z, 16)
             self[chunkX, chunkZ][x, y, z] = value
     
-    def check_key(self, key):
-        """Raise an exception if <key> is invalid"""
-        if not isinstance(key, tuple):
-            raise TypeError(f'Key must be tuple, not {type(key)}')
+    def convert_key(self, key):
+        """Convert <key> to a tuple of ints"""
+        key = tuple([int(i) for i in key])
+        return key
     
-    def load(self, key):
-        """Load chunk at <x> <y> to cache"""
-        x, z = key
-        self[key] = McaFile.read_chunk(folder = self.folder, x = x, z = z)
+    def convert_value(self, value):
+        """Make sure value is a McaFile"""
+        if not isinstance(value, McaFile):
+            raise TypeError(f'Value must be McaFile, not {value}')
+        return value
     
     def load_all(self):
         """Load all chunks from this dimension
@@ -95,6 +90,11 @@ class Dimension(util.Cache):
                         if chunk is not None:
                             coords = chunk.coords_chunk
                             self[coords] = chunk
+    
+    def read(self, key):
+        """Return McaFile at coords in key"""
+        xRegion, zRegion = key
+        return McaFile(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
     
     def save(self, key):
         """Save chunk at <x> <z> and remove it from cache"""
