@@ -56,6 +56,9 @@ class McaFile(collections.abc.Sequence, util.Cache):
         if self._mmap is not None:
             self._mmap.__exit__(exc_type, exc_value, traceback)
     
+    def __getitem__(self, key):
+        return util.Cache.__getitem__(self, key)
+    
     def __len__(self):
         return self.sideLength ** 2
     
@@ -175,10 +178,18 @@ class McaFile(collections.abc.Sequence, util.Cache):
             self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
 
     def convert_key(self, key):
+    
         if not isinstance(key, int):
-            raise TypeError(f'Indices must be int, not {type(key)}')
-        elif key > len(self):
-            raise keyError(f'key must be 0-{len(self)}, not {key}')
+        
+            try:
+                xChunk, zChunk = key
+                key = self.sideLength * zChunk + xChunk
+            except:
+                raise TypeError(f'Indices must be int or sequence of 2 coords, not {type(key)}')
+        
+        if key > len(self):
+            raise keyError(f'Key must be 0-{len(self)}, not {key}')
+        
         return key
    
     def convert_value(self, value):
