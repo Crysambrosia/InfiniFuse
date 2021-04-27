@@ -22,7 +22,10 @@ class Dimension(util.Cache):
     
     def __delitem__(self, key):
         if len(key) == 2:
-            util.Cache.__delitem__(self, key)
+            x, z = key
+            xRegion, xChunk = divmod(x, McaFile.sideLength)
+            zRegion, zChunk = divmod(z, McaFile.sideLength)
+            del util.Cache.__getitem__(self, key = (xRegion, zRegion))[xChunk, zChunk]
     
     def __getitem__(self, key):
         """Return a chunk from two coords, and a block from three"""
@@ -94,17 +97,8 @@ class Dimension(util.Cache):
         xRegion, zRegion = key
         return McaFile(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
     
-    def save(self, key):
-        """Save chunk at <x> <z> and remove it from cache"""
-        
-        if self[key] is not None:
-            McaFile.write_chunk(folder = self.folder, value = self[key])
-        
-        del self[key]
-    
     def write(self, key, value):
         """Write <value> to McaFile at coords in <key>"""
-        
         xRegion, zRegion = key
         value.path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca')
-        value.save_all
+        value.save_all()
