@@ -65,10 +65,13 @@ def find_offsets(a : World, b : World):
                 print(f'[{datetime.datetime.now()}] Found offset : {netherOffset} for the Nether, {overworldOffset} for the overworld !')
                 return netherOffset
 
-def fuse(base : World, other : World):
+def fuse(base : str, other : str):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
     
-    netherXchunk, netherZchunk = find_offsets(a = base, b = other)
+    a = World.from_saves(baseName)
+    b = World.from_saves(otherName)
+    
+    netherXchunk, netherZchunk = find_offsets(a, b)
     netherXblock = netherXchunk * 16
     netherZblock = netherZchunk * 16
     
@@ -79,19 +82,19 @@ def fuse(base : World, other : World):
     overworldZchunk = overworldZchunk * 16
     
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
-    for chunk in other.dimensions['minecraft:the_nether']:
+    for chunk in b.dimensions['minecraft:the_nether']:
         move_chunk(
             chunk = chunk, 
-            folder = base.dimensions['minecraft:the_nether'].folder, 
+            folder = a.dimensions['minecraft:the_nether'].folder, 
             offsetXchunk = netherXchunk,
             offsetZchunk = netherZchunk
             )
     
     print(f'[{datetime.datetime.now()}] Transferring the overworld...')
-    for chunk in other.dimensions['minecraft:overworld']:
+    for chunk in b.dimensions['minecraft:overworld']:
         move_chunk(
             chunk = chunk, 
-            folder = base.dimensions['minecraft:overworld'].folder, 
+            folder = a.dimensions['minecraft:overworld'].folder, 
             offsetXchunk = overworldXchunk,
             offsetZchunk = overworldZchunk
             )
