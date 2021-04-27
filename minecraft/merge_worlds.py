@@ -101,30 +101,28 @@ def fuse(base : str, other : str):
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
-def fusion_map(base : str, other : str):
+def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     """Create a PNG idea of how two maps are going to be fused"""
     a = World.from_saves(base)
     b = World.from_saves(other)
     
     offsetX, offsetZ = find_offsets(a, b)
-    aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions['minecraft:the_nether'])
-    bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions['minecraft:the_nether'])
+    if dimension == 'minecraft:overworld':
+        offsetX *= 8
+        offsetZ += 8
     
-    print(aXmin, aZmin)
+    aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions[dimension])
+    bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions[dimension])
     
     bXmax += offsetX
     bXmin += offsetX
     bZmax += offsetZ
     bZmin += offsetZ
     
-    print(bXmin, bZmin)
-    
     fuseXmax = max(aXmax, bXmax)
     fuseXmin = min(aXmin, bXmin)
     fuseZmax = max(aZmax, bZmax)
     fuseZmin = min(aZmin, bZmin)
-    
-    print(fuseXmin, fuseZmin)
     
     sideLen = McaFile.sideLength
     
@@ -155,8 +153,7 @@ def fusion_map(base : str, other : str):
     
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
         f.write(util.makeMapPNG(fuseMap, fuseXmax, fuseXmin, fuseZmax, fuseZmin))
-    
-    
+  
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
     for radius in range(maxRadius):
