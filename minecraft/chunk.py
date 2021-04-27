@@ -180,8 +180,8 @@ class Chunk(TAG.Compound, util.Cache):
                     if start == 0:
                         section['BlockStates'].append(unitType())
                     
-                    section['BlockStates'][unit] = util.set_bits(
-                        section['BlockStates'][unit], 
+                    section['BlockStates'][unit].unsigned = util.set_bits(
+                        section['BlockStates'][unit].unsigned, 
                         start, 
                         end, 
                         block
@@ -189,8 +189,8 @@ class Chunk(TAG.Compound, util.Cache):
         
         unit, start, end = self.find_block(section, blockID)
         
-        section['BlockStates'][unit] = util.set_bits(
-            n = section['BlockStates'][unit],
+        section['BlockStates'][unit].unsigned = util.set_bits(
+            n = section['BlockStates'][unit].unsigned,
             start = start,
             end = end, 
             value = section['Palette'].index(value)
