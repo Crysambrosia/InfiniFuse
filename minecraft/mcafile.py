@@ -201,6 +201,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         """Save <value> as data for entry <key>"""
         
         value = self.convert_value(value)
+        value.save_all()
         
         # Get header info
         header = self.get_header(key)
