@@ -76,23 +76,35 @@ def fuse(base : str, other : str):
     overworldXchunk = netherXchunk * 8
     overworldZchunk = netherZchunk * 8
     
+    cacheSize = 2048
+    
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
-    for chunk in b.dimensions['minecraft:the_nether']:
-        move_chunk(
+    for i, chunk in enumerate(b.dimensions['minecraft:the_nether']):
+        chunk = move_chunk(
             chunk = chunk, 
-            folder = a.dimensions['minecraft:the_nether'].folder, 
             offsetXchunk = netherXchunk,
             offsetZchunk = netherZchunk
             )
+        a.dimensions['minecraft:the_nether'][chunk.coords_chunk] = chunk
+        if i % cacheSize == 0 and i > 0:
+            print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
+            a.dimensions['minecraft:the_nether'].save_all()
+            print(f'[{datetime.datetime.now()}] Saved. Processing more...')
+    a.dimensions['minecraft:the_nether'].save_all()
     
     print(f'[{datetime.datetime.now()}] Transferring the overworld...')
-    for chunk in b.dimensions['minecraft:overworld']:
-        move_chunk(
-            chunk = chunk, 
-            folder = a.dimensions['minecraft:overworld'].folder, 
+    for i, chunk in enumerate(b.dimensions['minecraft:overworld']):
+        chunk = move_chunk(
+            chunk = chunk,  
             offsetXchunk = overworldXchunk,
             offsetZchunk = overworldZchunk
             )
+        a.dimensions['minecraft:overworld'][chunk.coords_chunk] = chunk
+        if i % cacheSize == 0 and i > 0:
+            print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
+            a.dimensions['minecraft:overworld'].save_all()
+            print(f'[{datetime.datetime.now()}] Saved. Processing more...')
+    a.dimensions['minecraft:overworld'].save_all()
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
@@ -162,7 +174,7 @@ def generate_offsets(maxRadius : int = 3_750_000):
                 yield x, -radius
                 yield x,  radius
 
-def move_chunk(chunk, folder : str, offsetXchunk : int, offsetZchunk : int):
+def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
     """Offset a chunk by <offsetX> <offsetZ> chunks on the grid
     """
     
@@ -347,7 +359,7 @@ def move_chunk(chunk, folder : str, offsetXchunk : int, offsetZchunk : int):
                     
                     chunk['']['Level']['Structures']['Starts'][startKey] = start
     
-    McaFile.write_chunk(folder = folder, value = chunk, protected = True)
+    return chunk
 
 def offset_conflicts(a, b, offset):
     """Check for conflicts if <b> was fused into <a> at <offset>"""
