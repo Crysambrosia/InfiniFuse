@@ -1,2 +1,3 @@
 *.pyc
 minecraft/desktop.ini
+util/test.py
