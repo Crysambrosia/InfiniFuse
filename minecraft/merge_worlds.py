@@ -1,7 +1,9 @@
 from .dimension import Dimension
 from .mcafile import McaFile
 from .world import World
+import concurrent.futures
 import datetime
+import itertools
 import minecraft.TAG as TAG
 import os
 import random
@@ -71,40 +73,27 @@ def fuse(base : str, other : str):
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    netherXchunk, netherZchunk = find_offsets(a, b)
+    netherX, netherZ = find_offsets(a, b)
     
-    overworldXchunk = netherXchunk * 8
-    overworldZchunk = netherZchunk * 8
+    overworldX = netherX * 8
+    overworldZ = netherZ * 8
     
     cacheSize = 2048
     
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
-    for i, chunk in enumerate(b.dimensions['minecraft:the_nether']):
-        chunk = move_chunk(
-            chunk = chunk, 
-            offsetXchunk = netherXchunk,
-            offsetZchunk = netherZchunk
-            )
-        a.dimensions['minecraft:the_nether'][chunk.coords_chunk] = chunk
-        if i % cacheSize == 0 and i > 0:
-            print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
-            a.dimensions['minecraft:the_nether'].save_all()
-            print(f'[{datetime.datetime.now()}] Saved. Processing more...')
-    a.dimensions['minecraft:the_nether'].save_all()
-    
+    move_dimension(
+        a = a.dimensions['minecraft:the_nether'],
+        b = b.dimensions['minecraft:the_nether'],
+        offsetX = netherX,
+        offsetZ = netherZ
+    )
     print(f'[{datetime.datetime.now()}] Transferring the overworld...')
-    for i, chunk in enumerate(b.dimensions['minecraft:overworld']):
-        chunk = move_chunk(
-            chunk = chunk,  
-            offsetXchunk = overworldXchunk,
-            offsetZchunk = overworldZchunk
-            )
-        a.dimensions['minecraft:overworld'][chunk.coords_chunk] = chunk
-        if i % cacheSize == 0 and i > 0:
-            print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
-            a.dimensions['minecraft:overworld'].save_all()
-            print(f'[{datetime.datetime.now()}] Saved. Processing more...')
-    a.dimensions['minecraft:overworld'].save_all()
+    move_dimension(
+        a = a.dimensions['minecraft:overworld'],
+        b = b.dimensions['minecraft:overworld'],
+        offsetX = overworldX,
+        offsetZ = overworldZ
+    )
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
@@ -364,6 +353,26 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                     chunk['']['Level']['Structures']['Starts'][startKey] = start
     
     return chunk
+
+def move_dimension(a : Dimension, b : Dimension, offsetX : int, offsetZ : int):
+    """Move all chunks from <b> into <a> at <offsetX> <offsetZ>"""
+    workers = 16
+    cacheSize = 2048
+    futures = []
+    chunks = iter(b)
+    processed = 0
+    
+    for i, chunk in enumerate(b):
+    
+        chunk = move_chunk(chunk, offsetX, offsetZ)
+        a[chunk.coords_chunk] = chunk
+        
+        if i == cacheSize and i != 0:
+            print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
+            a.save_all()
+            print(f'[{datetime.datetime.now()}] Saved.')
+    
+    a.save_all()
 
 def offset_conflicts(a, b, offset):
     """Check for conflicts if <b> was fused into <a> at <offset>"""
