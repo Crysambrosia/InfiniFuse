@@ -34,10 +34,10 @@ class Cache(ABC):
     def load(self, key):
         """Load data for entry <key> into cache"""
         key = self.convert_key(key = key)
-        self._cache[key] = self.read(key)
+        self._cache[key] = self.load_value(key)
 
     @abstractmethod
-    def read(self, key):
+    def load_value(self, key):
         """Return data for entry <key> from underlying data source"""
         pass
 
@@ -48,13 +48,13 @@ class Cache(ABC):
         if key not in self._cache:
             return
         
-        self.write(key = key, value = self._cache[key])
+        self.write_value(key = key, value = self._cache[key])
         self.discard(key)
     
     def save_all(self):
         """Save all changes in self._cache"""
         for key in self._cache:
-            self.write(key = key, value = self._cache[key])
+            self.write_value(key = key, value = self._cache[key])
         
         self.discard_all()
     
@@ -73,6 +73,6 @@ class Cache(ABC):
         pass
     
     @abstractmethod
-    def write(self, key, value):
+    def save_value(self, key, value):
         """Save <value> as data for entry <key> to underlying data source"""
         pass

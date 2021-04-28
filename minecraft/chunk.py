@@ -107,7 +107,7 @@ class Chunk(TAG.Compound, util.Cache):
         sectionID, blockID = divmod(y*16*16 + z*16 + x, 4096)
         return sectionID, blockID
 
-    def read(self, key):
+    def load_value(self, key):
         """Read BlockState at coords in <key>"""
         sectionID, blockID = self.find_section(key)
         
@@ -135,7 +135,7 @@ class Chunk(TAG.Compound, util.Cache):
         self.save_all()
         return super().to_bytes()
 
-    def write(self, key, value):
+    def save_value(self, key, value):
         """Save block <value> at <key> from cache to self.value"""
         
         sectionID, blockID = self.find_section(key)

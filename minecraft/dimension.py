@@ -92,12 +92,12 @@ class Dimension(util.Cache):
                             coords = chunk.coords_chunk
                             self[coords] = chunk'''
     
-    def read(self, key):
+    def load_value(self, key):
         """Return McaFile at coords in key"""
         xRegion, zRegion = key
         return McaFile(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
     
-    def write(self, key, value):
+    def save_value(self, key, value):
         """Write <value> to McaFile at coords in <key>"""
         xRegion, zRegion = key
         value.path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca')
