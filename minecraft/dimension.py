@@ -65,6 +65,15 @@ class Dimension(util.Cache):
             zChunk, z = divmod(z, 16)
             self[xChunk, zChunk][x, y, z] = value
     
+    def binary_map(self):
+        """Return a dict of the binary maps of all contained McaFiles, indexed by region coords"""
+        binMap = {}
+        for fileName in os.listdir(self.folder):
+            if os.path.splitext(fileName)[1] == '.mca':
+                f = McaFile(path = os.path.join(self.folder, fileName))
+                binMap[f.coords_region] = f.binary_map()
+        return binMap
+    
     def convert_key(self, key):
         """Convert <key> to a tuple of ints"""
         key = tuple([int(i) for i in key])
@@ -75,22 +84,6 @@ class Dimension(util.Cache):
         if not isinstance(value, McaFile):
             raise TypeError(f'Value must be McaFile, not {value}')
         return value
-    
-    '''def load_all(self):
-        """Load all chunks from this dimension
-        
-        Warning : This can easily overload RAM
-        """
-        for fileName in os.listdir(self.folder):
-        
-            if os.path.splitext(fileName)[1] == '.mca':
-            
-                path = os.path.join(self.folder, fileName)
-                with McaFile(path) as f:
-                    for chunk in f:
-                        if chunk is not None:
-                            coords = chunk.coords_chunk
-                            self[coords] = chunk'''
     
     def load_value(self, key):
         """Return McaFile at coords in key"""

@@ -16,38 +16,38 @@ import util
 # Combine player stats
 # Do something with player inventory ?
 
-def dimension_binary_map(dimension : Dimension):
-    """Map all chunks from <dimension> to a two dimensional array of booleans"""
+def map_and_boundaries(dimension : Dimension):
+    """Return binary map and boundaries of <dimension>"""
     x = []
     z = []
-    maps = {}
     
-    for fileName in os.listdir(dimension.folder):
-        if os.path.splitext(fileName)[1] == '.mca':
-            with McaFile(os.path.join(dimension.folder, fileName)) as f:
-                chunkX, chunkZ = f.coords_chunk
-                x += [chunkX, chunkX + 31]
-                z += [chunkZ, chunkZ + 31]
-                
-                regionX, regionZ = f.coords_region
-                maps[regionX, regionZ] = f.binary_map()
-    return max(x), min(x), max(z), min(z), maps
+    binMap = dimension.binary_map()
+    for xRegion, zRegion in binMap:
+        x.append(xRegion)
+        z.append(zRegion)
+    
+    xMax = (max(x) + 1) * McaFile.sideLength
+    xMin = min(z) * McaFile.sideLength
+    zMax = (max(z) + 1) * McaFile.sideLength
+    zMin = min(z) * McaFile.sideLength
+    
+    return binMap, xMax, xMin, zMax, zMin
 
 def find_offsets(a : World, b : World):
     """Find offsets with no conflicts to fuse the Overworld and Nether of <a> and <b>"""
     
     print(f'[{datetime.datetime.now()}] Making binary map of base overworld...')
-    aOverworld = dimension_binary_map(a.dimensions['minecraft:overworld'])
+    aOverworld = map_and_boundaries(a.dimensions['minecraft:overworld'])
     
     print(f'[{datetime.datetime.now()}] Making binary map of base nether...')
-    aNether    = dimension_binary_map(a.dimensions['minecraft:the_nether'])
+    aNether    = map_and_boundaries(a.dimensions['minecraft:the_nether'])
     # Binary maps of <a>'s overworld and nether
     
     print(f'[{datetime.datetime.now()}] Making binary map of other overworld...')
-    bOverworld = dimension_binary_map(b.dimensions['minecraft:overworld'])
+    bOverworld = map_and_boundaries(b.dimensions['minecraft:overworld'])
     
     print(f'[{datetime.datetime.now()}] Making binary map of other nether...')
-    bNether    = dimension_binary_map(b.dimensions['minecraft:the_nether'])
+    bNether    = map_and_boundaries(b.dimensions['minecraft:the_nether'])
     # Binary maps of <b>'s overworld and nether
     
     print(f'[{datetime.datetime.now()}] Trying offsets...')
@@ -118,23 +118,12 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
         offsetX *= 8
         offsetZ *= 8
     
-    aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions[dimension])
-    bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions[dimension])
+    aMap, *_ = map_and_boundaries(a.dimensions[dimension])
+    bMap, *_ = map_and_boundaries(b.dimensions[dimension])
     
     sideLen = McaFile.sideLength
     
-    fuseMap = {}
-    for coords, region in aMap.items():
-        fuseMap[coords] = []
-        for row in region:
-            fuseRow = []
-            for chunk in row:
-                if chunk:
-                    fuseRow.append(1)
-                else:
-                    fuseRow.append(0)
-            fuseMap[coords].append(fuseRow)
-    
+    fuseMap = aMap
     for coords, region in bMap.items():
         regionX, regionZ = coords
         for x, row in enumerate(region):
@@ -154,9 +143,26 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
         x.append(xRegion)
         z.append(zRegion)
     
+    print(f'[{datetime.datetime.now()}] Preparing PNG data...')
+    data = b""
+    for zRegion in range(min(z), max(z) + 1):
+        for zChunk in range(sideLen):
+            data += b"\0" # no filter for this scanline
+            for xRegion in range(min(x), max(x) + 1):
+                if (xRegion, zRegion) in fuseMap:
+                    for xChunk in range(sideLen):
+                        data += (fuseMap[xRegion, zRegion][xChunk][zChunk] * 127).to_bytes(1, 'big')
+                else:
+                    # Write a black strip if this region doesn't exist
+                    data += b'\x00' * sideLen
+    
+    height = (max(z) - min(z) + 1) * sideLen
+    width  = (max(x) - min(x) + 1) * sideLen
+    
     print(f'[{datetime.datetime.now()}] Writing PNG...')
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
-        f.write(util.makeMapPNG(fuseMap, xMax = max(x), xMin = min(x), zMax = max(z), zMin = min(z)))
+        f.write(util.makePNG(data = data, height = height, width = width))
+    
     print(f'[{datetime.datetime.now()}] Done !')
   
 def generate_offsets(maxRadius : int = 3_750_000):
@@ -365,11 +371,11 @@ def offset_conflicts(a, b, offset):
     # These variables are not stored in dicts on purpose !
     # Dict access somehow halves performance
     
-    aXmax, aXmin, aZmax, aZmin, aMap = a
-    # Data from dimension_binary_map for a
+    aMap, aXmax, aXmin, aZmax, aZmin = a
+    # Data from map_and_boundaries for a
     
-    bXmax, bXmin, bZmax, bZmin, bMap = b
-    # Data from dimension_binary_map for b
+    bMap, bXmax, bXmin, bZmax, bZmin = b
+    # Data from map_and_boundaries for b
     
     offsetX, offsetZ = offset
     # Offset coordinates
