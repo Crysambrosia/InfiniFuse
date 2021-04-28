@@ -2,7 +2,6 @@ from .chunk import Chunk
 from .compression import compress, decompress
 import collections.abc
 import math
-import mmap
 import os
 import time
 import util
@@ -12,7 +11,10 @@ class McaFile(collections.abc.Sequence, util.Cache):
     
     For use as a context manager !
     """
-    __slots__ = ['_file', '_mmap', 'path']
+    # Optimize this by reading the whole file at instanciation into a bytearray
+    # and making changes to the bytearray instead of an valueed file
+    # This will make changes depend on RAM latency instead of disk latency
+    __slots__ = ['_file', '_value', 'path']
     sectorLength = 4096
     sideLength = 32
     
@@ -21,14 +23,14 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self._cache = {}
         """Cache containing loaded chunks"""
         
-        self._file = None
-        """File Object of file at self.path (after __enter__)"""
-        
-        self._mmap = None
-        """mmap.map of file at self.path (after __enter__)"""
-        
         self.path = path
         """Path of file for IO"""
+        
+        if os.path.exists(self.path):
+            with open(self.path, mode = 'rb') as f:
+                self.value = bytearray(f.read())
+        else:
+            self.value = bytearray(self.sectorLength*2)
     
     def __contains__(self, key):
         """Whether chunk <key> contains any data"""
@@ -38,23 +40,12 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.__exit__()
     
     def __enter__(self):
-        """Will actually create the file if it does not exist"""
-        
-        if not os.path.exists(self.path):
-            with open(self.path, mode = 'wb') as f:
-                f.truncate(self.sectorLength*2)
-        
-        self._file = open(self.path, mode = 'r+b')
-        self._file.__enter__()
-        self._mmap = mmap.mmap(fileno = self._file.fileno(), length = 0, access = mmap.ACCESS_WRITE)
-        self._mmap.__enter__()
+        """Return self"""
         return self
     
     def __exit__(self, exc_type = None, exc_value = None, traceback = None):
-        if self._file is not None:
-            self._file.__exit__(exc_type, exc_value, traceback)
-        if self._mmap is not None:
-            self._mmap.__exit__(exc_type, exc_value, traceback)
+        """Save all changes"""
+        self.write()
     
     def __getitem__(self, key):
         return util.Cache.__getitem__(self, key)
@@ -101,13 +92,11 @@ class McaFile(collections.abc.Sequence, util.Cache):
         """Return header info of chunk <key> or None if it does not exist"""
         
         key = self.convert_key(key)
-        if not os.path.exists(self.path):
-            return None
         
-        offset = int.from_bytes(self.mmap[key*4 : key*4 + 3], byteorder = 'big')
-        sectorCount = self.mmap[key*4 + 3]
+        offset = int.from_bytes(self.value[key*4 : key*4 + 3], byteorder = 'big')
+        sectorCount = self.value[key*4 + 3]
         timestamp = int.from_bytes(
-            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4],
+            self.value[key*4 + self.sectorLength : key*4 + self.sectorLength + 4],
             byteorder = 'big'
         )
         
@@ -115,12 +104,6 @@ class McaFile(collections.abc.Sequence, util.Cache):
             return None
         else:
             return {'offset' : offset, 'sectorCount' : sectorCount, 'timestamp' : timestamp}
-    
-    @classmethod
-    def read_chunk(cls, folder : str, x : int, z : int):
-    
-        path, key = cls.find_chunk(folder, x, z)
-        return cls(path)[key]
     
     @property
     def coords(self):
@@ -138,7 +121,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
         return (int(regionX), int(regionZ))
     
-    def read(self, key):
+    def load_value(self, key):
         """Return data for chunk <key>"""
         header = self.get_header(key)
         
@@ -146,17 +129,11 @@ class McaFile(collections.abc.Sequence, util.Cache):
             return None
         
         offset = header['offset'] * self.sectorLength
-        length = int.from_bytes(self.mmap[offset : offset + 4], 'big')
-        compression = self.mmap[offset + 4]
-        data = self.mmap[offset + 5 : offset + length + 4]
+        length = int.from_bytes(self.value[offset : offset + 4], 'big')
+        compression = self.value[offset + 4]
+        data = self.value[offset + 5 : offset + length + 4]
         
         return Chunk.from_bytes(decompress(data, compression)[0])
-    
-    @property
-    def mmap(self):
-        if self._mmap is None:
-            self.__enter__()
-        return self._mmap
     
     def set_header(self, 
         key : int, 
@@ -168,14 +145,14 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.convert_key(key)
         
         if offset is not None:
-            self.mmap[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
+            self.value[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
         
         if sectorCount is not None:
-            self.mmap[key*4 + 3] = sectorCount
+            self.value[key*4 + 3] = sectorCount
         
         if timestamp is not None:
             timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
-            self.mmap[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
+            self.value[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
 
     def convert_key(self, key):
     
@@ -196,8 +173,17 @@ class McaFile(collections.abc.Sequence, util.Cache):
         if not isinstance(value, Chunk):
             raise TypeError(f'Value must be a Chunk, not {value}')
         return value
+    
+    def save(self, key):
+        """Save changes from cache to value, and from value to disk"""
+        util.Cache.save(self, key)
+        self.write()
+    
+    def save_all(self):
+        util.Cache.save_all(self)
+        self.write()
    
-    def write(self, key, value):
+    def save_value(self, key, value):
         """Save <value> as data for entry <key>"""
         
         value = self.convert_value(value)
@@ -242,11 +228,9 @@ class McaFile(collections.abc.Sequence, util.Cache):
                     self.set_header(i, **header)
             
             # Move following chunks
-            oldStart = offset + oldSectorCount
-            newStart = oldStart + sectorChange
-            oldData = self.mmap[oldStart * self.sectorLength :]
-            self.mmap.resize(len(self.mmap) + sectorChange * self.sectorLength)
-            self.mmap[newStart * self.sectorLength :] = oldData
+            oldStart = (offset + oldSectorCount) * self.sectorLength
+            self.value = self.value[:oldStart] + bytearray(sectorChange*self.sectorLength) + self.value[oldStart:]
+            
         
         # Write header
         self.set_header(
@@ -259,22 +243,10 @@ class McaFile(collections.abc.Sequence, util.Cache):
         # Write Data
         offset *= self.sectorLength
         
-        self.mmap[offset : offset + 4] = length.to_bytes(4, 'big')
-        self.mmap[offset + 4] = compression
-        self.mmap[offset + 5 : offset + length + 4] = data
+        self.value[offset : offset + 4] = length.to_bytes(4, 'big')
+        self.value[offset + 4] = compression
+        self.value[offset + 5 : offset + length + 4] = data
     
-    @classmethod
-    def write_chunk(cls, folder : str, value, protected = False):
-        """Save <value> to the appropriate McaFile for chunk <x> <z> in <folder>
-        If <protected> is True, raise an exception if there is already a chunk there
-        """
-        
-        x, z = value.coords_chunk
-        path, key = cls.find_chunk(folder = folder, x = x, z = z)
-        
-        file = cls(path)
-        
-        if protected and key in file:
-            raise IOError(f'Cannot overwrite chunk at {x}, {z} in protected mode')
-        
-        file[key] = value
+    def write(self):
+        with open(self.path, mode = 'wb') as f:
+            f.write(self.value)
