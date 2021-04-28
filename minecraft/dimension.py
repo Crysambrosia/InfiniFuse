@@ -1,5 +1,6 @@
 from .chunk import Chunk
 from .mcafile import McaFile
+import concurrent.futures
 import os
 import util
 
@@ -46,10 +47,9 @@ class Dimension(util.Cache):
         """A generator that extracts every existing chunk from this dimension"""
         for fileName in os.listdir(self.folder):
             if os.path.splitext(fileName)[1] == '.mca':
-                with McaFile(os.path.join(self.folder, fileName)) as f:
-                    for chunk in f:
-                        if chunk is not None:
-                            yield chunk
+                for chunk in McaFile(os.path.join(self.folder, fileName)):
+                    if chunk is not None:
+                        yield chunk
     
     def __setitem__(self, key, value):
         
@@ -89,6 +89,11 @@ class Dimension(util.Cache):
         """Return McaFile at coords in key"""
         xRegion, zRegion = key
         return McaFile(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
+    
+    '''def save_all(self):
+        """Save all McaFiles from cache"""
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            executor.map(McaFile.save_all, self._cache)'''
     
     def save_value(self, key, value):
         """Write <value> to McaFile at coords in <key>"""
