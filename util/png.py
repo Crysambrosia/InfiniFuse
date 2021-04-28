@@ -1,67 +1,13 @@
 import zlib
 import struct
 
-def makeGreyPNG(data, height = None, width = None):
-    def I1(value):
-        return struct.pack("!B", value & (2**8-1))
-    def I4(value):
-        return struct.pack("!I", value & (2**32-1))
-    # compute width&height from data if not explicit
-    if height is None:
-        height = len(data) # rows
-    if width is None:
-        width = 0
-        for row in data:
-            if width < len(row):
-                width = len(row)
-    # generate these chunks depending on image type
-    makeIHDR = True
-    makeIDAT = True
-    makeIEND = True
-    png = b"\x89" + "PNG\r\n\x1A\n".encode('ascii')
-    if makeIHDR:
-        colortype = 0 # true gray image (no palette)
-        bitdepth = 8 # with one byte per pixel (0..255)
-        compression = 0 # zlib (no choice here)
-        filtertype = 0 # adaptive (each scanline seperately)
-        interlaced = 0 # no
-        IHDR = I4(width) + I4(height) + I1(bitdepth)
-        IHDR += I1(colortype) + I1(compression)
-        IHDR += I1(filtertype) + I1(interlaced)
-        block = "IHDR".encode('ascii') + IHDR
-        png += I4(len(IHDR)) + block + I4(zlib.crc32(block))
-    if makeIDAT:
-        raw = b""
-        for y in range(height):
-            raw += b"\0" # no filter for this scanline
-            for x in range(width):
-                c = b"\0" # default black pixel
-                if y < len(data) and x < len(data[y]):
-                    c = I1(data[y][x])
-                raw += c
-        compressor = zlib.compressobj()
-        compressed = compressor.compress(raw)
-        compressed += compressor.flush() #!!
-        block = "IDAT".encode('ascii') + compressed
-        png += I4(len(compressed)) + block + I4(zlib.crc32(block))
-    if makeIEND:
-        block = "IEND".encode('ascii')
-        png += I4(0) + block + I4(zlib.crc32(block))
-    return png
-
-def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
+def makePNG(data, height = 0, width = 0):
+    """Returnn bytes of a greyscale PNG with <data> as IDAT"""
 
     def I1(value):
         return struct.pack("!B", value & (2**8-1))
     def I4(value):
         return struct.pack("!I", value & (2**32-1))
-
-    xMax += 1
-    zMax += 1
-
-    regionSideLen = 32
-    height = (zMax - zMin) * regionSideLen
-    width  = (xMax - xMin) * regionSideLen
     
     # generate these chunks depending on image type
     makeIHDR = True
@@ -80,20 +26,8 @@ def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
         block = "IHDR".encode('ascii') + IHDR
         png += I4(len(IHDR)) + block + I4(zlib.crc32(block))
     if makeIDAT:
-        raw = b""
-        for zRegion in range(zMin, zMax):
-            for zChunk in range(regionSideLen):
-                raw += b"\0" # no filter for this scanline
-                for xRegion in range(xMin, xMax):
-                    if (xRegion, zRegion) in data:
-                        for xChunk in range(regionSideLen):
-                            raw += I1(data[xRegion, zRegion][xChunk][zChunk] * 127)
-                    else:
-                        # Write a black strip if this region doesn't exist
-                        raw += b'\x00' * regionSideLen
-        
         compressor = zlib.compressobj()
-        compressed = compressor.compress(raw)
+        compressed = compressor.compress(data)
         compressed += compressor.flush() #!!
         block = "IDAT".encode('ascii') + compressed
         png += I4(len(compressed)) + block + I4(zlib.crc32(block))
@@ -101,7 +35,3 @@ def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
         block = "IEND".encode('ascii')
         png += I4(0) + block + I4(zlib.crc32(block))
     return png
-
-def _example():
-    with open("cross3x3.png","wb") as f:
-        f.write(makePNG([[0,255,0],[255,255,255],[0,255,0]]))
