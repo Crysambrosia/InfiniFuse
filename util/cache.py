@@ -48,13 +48,13 @@ class Cache(ABC):
         if key not in self._cache:
             return
         
-        self.write_value(key = key, value = self._cache[key])
+        self.save_value(key = key, value = self._cache[key])
         self.discard(key)
     
     def save_all(self):
         """Save all changes in self._cache"""
         for key in self._cache:
-            self.write_value(key = key, value = self._cache[key])
+            self.save_value(key = key, value = self._cache[key])
         
         self.discard_all()
     
