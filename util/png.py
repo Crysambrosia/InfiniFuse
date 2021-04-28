@@ -56,8 +56,12 @@ def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
     def I4(value):
         return struct.pack("!I", value & (2**32-1))
 
-    height = zMax - zMin
-    width  = xMax - xMin
+    xMax += 1
+    zMax += 1
+
+    regionSideLen = 32
+    height = (zMax - zMin) * regionSideLen
+    width  = (xMax - xMin) * regionSideLen
     
     # generate these chunks depending on image type
     makeIHDR = True
@@ -77,31 +81,16 @@ def makeMapPNG(data, xMax = 0, xMin = 0, zMax = 0, zMin = 0):
         png += I4(len(IHDR)) + block + I4(zlib.crc32(block))
     if makeIDAT:
         raw = b""
-        x = xMin
-        for z in range(zMin, zMax):
-            raw += b"\0" # no filter for this scanline
-            for x in range(xMin, xMax):
-                regionX, chunkX = divmod(x, 32)
-                regionZ, chunkZ = divmod(z, 32)
-                if (regionX, regionZ) in data:
-                    raw += I1(data[regionX, regionZ][chunkX][chunkZ] * 127)
-                else:
-                    raw += b'\0'
-                
-            '''while True:
-                # This is not a for loop because we may need to skip ahead, which a range does
-                # not allow
-                regionX, chunkX = divmod(x, 32)
-                regionZ, chunkZ = divmod(z, 32)
-                if (regionX, regionZ) not in data:
-                    raw += b'\0' * 32
-                    x += 32
-                else:
-                    raw += I1(data[regionX, regionZ][chunkX][chunkZ] * 127)
-                    x += 1
-                
-                if x >= xMax:
-                    break'''
+        for zRegion in range(zMin, zMax):
+            for zChunk in range(regionSideLen):
+                raw += b"\0" # no filter for this scanline
+                for xRegion in range(xMin, xMax):
+                    if (xRegion, zRegion) in data:
+                        for xChunk in range(regionSideLen):
+                            raw += I1(data[xRegion, zRegion][xChunk][zChunk] * 127)
+                    else:
+                        # Write a black strip if this region doesn't exist
+                        raw += b'\x00' * regionSideLen
         
         compressor = zlib.compressobj()
         compressed = compressor.compress(raw)

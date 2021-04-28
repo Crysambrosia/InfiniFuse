@@ -121,16 +121,6 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     aXmax, aXmin, aZmax, aZmin, aMap = dimension_binary_map(a.dimensions[dimension])
     bXmax, bXmin, bZmax, bZmin, bMap = dimension_binary_map(b.dimensions[dimension])
     
-    bXmax += offsetX
-    bXmin += offsetX
-    bZmax += offsetZ
-    bZmin += offsetZ
-    
-    fuseXmax = max(aXmax, bXmax)
-    fuseXmin = min(aXmin, bXmin)
-    fuseZmax = max(aZmax, bZmax)
-    fuseZmin = min(aZmin, bZmin)
-    
     sideLen = McaFile.sideLength
     
     fuseMap = {}
@@ -158,8 +148,16 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
                 if chunk:
                     fuseMap[realXregion, realZregion][realXchunk][realZchunk] += 1
     
+    x = []
+    z = []
+    for xRegion, zRegion in fuseMap:
+        x.append(xRegion)
+        z.append(zRegion)
+    
+    print(f'[{datetime.datetime.now()}] Writing PNG...')
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
-        f.write(util.makeMapPNG(fuseMap, fuseXmax, fuseXmin, fuseZmax, fuseZmin))
+        f.write(util.makeMapPNG(fuseMap, xMax = max(x), xMin = min(x), zMax = max(z), zMin = min(z)))
+    print(f'[{datetime.datetime.now()}] Done !')
   
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
