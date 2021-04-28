@@ -330,17 +330,17 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                             
                             for key in child:
                                 if key == 'Entrances':
-                                    for i in child['Entrances']:
-                                        child['Entrances'][i][0] += offsetXblock
-                                        child['Entrances'][i][2] += offsetZblock
-                                        child['Entrances'][i][3] += offsetXblock
-                                        child['Entrances'][i][5] += offsetZblock
+                                    for iEntrance, entrance in enumerate(child['Entrances']):
+                                        entrance[0] += offsetXblock
+                                        entrance[2] += offsetZblock
+                                        entrance[3] += offsetXblock
+                                        entrance[5] += offsetZblock
+                                        child['Entrances'][iEntrance] = entrance
                                     
                                 elif key == 'junctions':
                                     for iJunction, junction in enumerate(child['junctions']):
                                         junction['source_x'] += offsetXblock
                                         junction['source_z'] += offsetZblock
-                                        
                                         child['junctions'][iJunction] = junction
                                     
                                 elif key in ['PosX', 'TPX']:
