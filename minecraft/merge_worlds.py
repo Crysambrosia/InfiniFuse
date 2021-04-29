@@ -356,11 +356,7 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
 
 def move_dimension(a : Dimension, b : Dimension, offsetX : int, offsetZ : int):
     """Move all chunks from <b> into <a> at <offsetX> <offsetZ>"""
-    workers = 16
     cacheSize = 2048
-    futures = []
-    chunks = iter(b)
-    processed = 0
     
     for i, chunk in enumerate(b):
     
