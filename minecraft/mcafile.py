@@ -10,7 +10,7 @@ import util
 class McaFile(collections.abc.Sequence, util.Cache):
     """Interface for .mca files"""
     
-    __slots__ = ['_cache', 'path', 'value']
+    __slots__ = ['_cache', '_path', 'value']
     sectorLength = 4096
     sideLength = 32
     
@@ -22,8 +22,8 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.path = path
         """Path of file for IO"""
         
-        self.value = value or bytearray(self.sectorLength*2)
-        """Content of represented file as a bytearray"""
+        self.value = value
+        """bytearray containing this file's data"""
     
     def __contains__(self, key):
         """Whether chunk <key> contains any data"""
@@ -52,7 +52,10 @@ class McaFile(collections.abc.Sequence, util.Cache):
         return self.sideLength ** 2
     
     def __repr__(self):
-        return f'McaFile at {self.path}'
+        try:
+            return f'McaFile at {self.path}'
+        except ValueError:
+            return f'McaFile (no file path)'
     
     def binary_map(self):
         """Return a table of booleans, representing whether a chunk exists or not"""
@@ -172,20 +175,32 @@ class McaFile(collections.abc.Sequence, util.Cache):
             raise TypeError(f'Value must be a Chunk, not {value}')
         return value
     
+    def read(self):
+        """Load data from file as self.path to self.value"""
+        if os.path.exists(self.path):
+            with open(self.path, mode = 'rb') as f:
+                self.value = f.read()
+        else:
+            self.value = bytearray(self.sectorLength*2)
+    
     @classmethod
-    def open(cls, path):
-        """Open from <path>"""
-        with open(path, mode = 'rb') as f:
-            return cls(path = path, value = f.read())
+    def open(cls, path : str):
+        """Open from direct file path"""
+        f = cls(path = path)
+        f.read()
+        return f
     
-    def save(self, key):
-        """Save changes from cache to value, and from value to disk"""
-        util.Cache.save(self, key)
-        self.write()
+    @property
+    def path(self):
+        """Raises a clear exception in case of invalid file operations"""
+        if self._path is None:
+            raise ValueError('McaFile has no file path.')
+        
+        return self._path
     
-    def save_all(self):
-        util.Cache.save_all(self)
-        self.write()
+    @path.setter
+    def path(self, value):
+        self._path = value
    
     def save_value(self, key, value):
         """Save <value> as data for entry <key>"""
@@ -252,5 +267,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.value[offset + 5 : offset + length + 4] = data
     
     def write(self):
+        """Save all changes from cache and write them to disk"""
+        self.save_all()
         with open(self.path, mode = 'wb') as f:
             f.write(self.value)
