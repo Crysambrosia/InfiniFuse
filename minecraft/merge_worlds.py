@@ -1,3 +1,4 @@
+from.datfile import DatFile
 from .dimension import Dimension
 from .mcafile import McaFile
 from .world import World
@@ -73,30 +74,36 @@ def fuse(base : str, other : str):
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    netherX, netherZ = find_offsets(a, b)
+    xNether, zNether = find_offsets(a, b)
     
-    overworldX = netherX * 8
-    overworldZ = netherZ * 8
+    xOverworld = xNether * 8
+    zOverworld = zNether * 8
     
     cacheSize = 2048
     
-    for fileName in os.listdir(os.path.join(b.folder, 'data')):
-        if fileName.split('_')[0] == 'map': 
-            pass
+    for i in range(b.map_idcounts + 1):
+        m = DatFile(path = os.path.join(b.folder, 'data', f'map_{i}.dat'))
+        if int(m['dimension']) == 0:
+            m['xCenter'] += xOverworld
+            m['zCenter'] += zOverworld
+        elif int(m['dimension']) == -1:
+            m['xCenter'] += xNether
+            m['zCenter'] += zNether
+            
     
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
     move_dimension(
         a = a.dimensions['minecraft:the_nether'],
         b = b.dimensions['minecraft:the_nether'],
-        offsetX = netherX,
-        offsetZ = netherZ
+        xOffset = xNether,
+        zOffset = zNether
     )
     print(f'[{datetime.datetime.now()}] Transferring the overworld...')
     move_dimension(
         a = a.dimensions['minecraft:overworld'],
         b = b.dimensions['minecraft:overworld'],
-        offsetX = overworldX,
-        offsetZ = overworldZ
+        xOffset = xOverworld,
+        zOffset = zOverworld
     )
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
@@ -106,10 +113,10 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    offsetX, offsetZ = find_offsets(a, b)
+    xOffset, zOffset = find_offsets(a, b)
     if dimension == 'minecraft:overworld':
-        offsetX *= 8
-        offsetZ *= 8
+        xOffset *= 8
+        zOffset *= 8
     
     aMap, *_ = map_and_boundaries(a.dimensions[dimension])
     bMap, *_ = map_and_boundaries(b.dimensions[dimension])
@@ -118,11 +125,11 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     
     fuseMap = aMap
     for coords, region in bMap.items():
-        regionX, regionZ = coords
+        xRegion, zRegion = coords
         for x, row in enumerate(region):
             for z, chunk in enumerate(row):
-                realXregion, realXchunk = divmod(x + offsetX + regionX*sideLen, sideLen)
-                realZregion, realZchunk = divmod(z + offsetZ + regionZ*sideLen, sideLen)
+                realXregion, realXchunk = divmod(x + xOffset + xRegion*sideLen, sideLen)
+                realZregion, realZchunk = divmod(z + zOffset + zRegion*sideLen, sideLen)
                 
                 if (realXregion, realZregion) not in fuseMap:
                     fuseMap[realXregion, realZregion] = [[0 for x in range(sideLen)] for z in range(sideLen)]
@@ -171,21 +178,21 @@ def generate_offsets(maxRadius : int = 3_750_000):
                 yield x, -radius
                 yield x,  radius
 
-def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
-    """Offset a chunk by <offsetX> <offsetZ> chunks on the grid
+def move_chunk(chunk, xChunk : int, zChunk : int):
+    """Offset a chunk by <xOffset> <zOffset> chunks on the grid
     """
     
-    offsetXblock = offsetXchunk * 16
-    offsetZblock = offsetZchunk * 16
+    xBlock = xChunk * 16
+    zBlock = zChunk * 16
     
-    chunk['']['Level']['xPos'] += offsetXchunk
-    chunk['']['Level']['zPos'] += offsetZchunk
+    chunk['']['Level']['xPos'] += xChunk
+    chunk['']['Level']['zPos'] += zChunk
     
     # Update all entity data that stores position
     if 'Entities' in chunk['']['Level']:
         for i, entity in enumerate(chunk['']['Level']['Entities']):
-            entity['Pos'][0] += offsetXblock
-            entity['Pos'][2] += offsetZblock
+            entity['Pos'][0] += xBlock
+            entity['Pos'][2] += zBlock
             
             for idx, _ in enumerate(entity['UUID']):
                 entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
@@ -206,8 +213,8 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                             # Since villagers become disconnected when changing dimensions,
                             # either this tag is not present when the villager is in another dimension
                             # or it will be deleted by the game next time the villager is updated
-                            memory['value']['pos'][0] += offsetXblock
-                            memory['value']['pos'][2] += offsetZblock
+                            memory['value']['pos'][0] += xBlock
+                            memory['value']['pos'][2] += zBlock
                             
                             entity['Brain']['memories'][memKey] = memory
                     
@@ -220,8 +227,8 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                     'PatrolTarget',
                     'WanderTarget'
                 ]:
-                    entity[key]['X'] += offsetXblock
-                    entity[key]['Z'] += offsetZblock
+                    entity[key]['X'] += xBlock
+                    entity[key]['Z'] += zBlock
                     
                 elif key in [
                     'AX',
@@ -233,7 +240,7 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                     'TravelPosX',
                     'TreasurePosX'
                 ]:
-                    entity[key] += offsetXblock
+                    entity[key] += xBlock
                     
                 elif key in [
                     'AZ',
@@ -245,7 +252,7 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                     'TravelPosZ',
                     'TreasurePosZ'
                 ]:
-                    entity[key] += offsetZblock
+                    entity[key] += zBlock
             
             chunk['']['Level']['Entities'][i] = entity
    
@@ -253,29 +260,29 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
     # This does NOT update map IDs yet !
     if 'TileEntities' in chunk['']['Level']:
         for i, entity in enumerate(chunk['']['Level']['TileEntities']):
-            entity['x'] += offsetXblock
-            entity['z'] += offsetZblock
+            entity['x'] += xBlock
+            entity['z'] += zBlock
             
             for key in entity:
                 if key in ['ExitPortal', 'FlowerPos']:
-                    entity[key]['X'] += offsetXblock
-                    entity[key]['Z'] += offsetZblock
+                    entity[key]['X'] += xBlock
+                    entity[key]['Z'] += zBlock
             
             chunk['']['Level']['TileEntities'][i] = entity
     
     # Update TileTicks
     if 'TileTicks' in chunk['']['Level']:
         for i, tick in enumerate(chunk['']['Level']['TileTicks']):
-            tick['x'] += offsetXblock
-            tick['z'] += offsetZblock
+            tick['x'] += xBlock
+            tick['z'] += zBlock
         
             chunk['']['Level']['TileTicks'][i] = tick
     
     # Update LiquidTicks
     if 'LiquidTicks' in chunk['']['Level']:
         for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
-            tick['x'] += offsetXblock
-            tick['z'] += offsetZblock
+            tick['x'] += xBlock
+            tick['z'] += zBlock
         
             chunk['']['Level']['LiquidTicks'][i] = tick
     
@@ -292,8 +299,8 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
                         
                         x.unsigned = util.get_bits(coords,  0, 32)
                         z.unsigned = util.get_bits(coords, 32, 64)
-                        x += offsetXchunk
-                        z += offsetZchunk
+                        x += xChunk
+                        z += zChunk
                         try:
                             coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
                             coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
@@ -310,61 +317,61 @@ def move_chunk(chunk, offsetXchunk : int, offsetZchunk : int):
             for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
                 if start['id'] != 'INVALID':
                     
-                    start['BB'][0] += offsetXblock
-                    start['BB'][2] += offsetZblock
-                    start['BB'][3] += offsetXblock
-                    start['BB'][5] += offsetZblock
+                    start['BB'][0] += xBlock
+                    start['BB'][2] += zBlock
+                    start['BB'][3] += xBlock
+                    start['BB'][5] += zBlock
                     
-                    start['ChunkX'] += offsetXchunk
-                    start['ChunkZ'] += offsetZchunk
+                    start['ChunkX'] += xChunk
+                    start['ChunkZ'] += zChunk
                     
                     if 'Children' in start:
                         for i, child in enumerate(start['Children']):
-                            child['BB'][0] += offsetXblock
-                            child['BB'][2] += offsetZblock
-                            child['BB'][3] += offsetXblock
-                            child['BB'][5] += offsetZblock
+                            child['BB'][0] += xBlock
+                            child['BB'][2] += zBlock
+                            child['BB'][3] += xBlock
+                            child['BB'][5] += zBlock
                             
                             for key in child:
                                 if key == 'Entrances':
                                     for iEntrance, entrance in enumerate(child['Entrances']):
-                                        entrance[0] += offsetXblock
-                                        entrance[2] += offsetZblock
-                                        entrance[3] += offsetXblock
-                                        entrance[5] += offsetZblock
+                                        entrance[0] += xBlock
+                                        entrance[2] += zBlock
+                                        entrance[3] += xBlock
+                                        entrance[5] += zBlock
                                         child['Entrances'][iEntrance] = entrance
                                     
                                 elif key == 'junctions':
                                     for iJunction, junction in enumerate(child['junctions']):
-                                        junction['source_x'] += offsetXblock
-                                        junction['source_z'] += offsetZblock
+                                        junction['source_x'] += xBlock
+                                        junction['source_z'] += zBlock
                                         child['junctions'][iJunction] = junction
                                     
                                 elif key in ['PosX', 'TPX']:
-                                    child[key] += offsetXblock
+                                    child[key] += xBlock
                                     
                                 elif key in ['PosZ', 'TPZ']:
-                                    child[key] += offsetZblock
+                                    child[key] += zBlock
                             
                             start['Children'][i] = child
                     
                     if 'Processed' in start:
                         for i, process in enumerate(start['Processed']):
-                            process['X'] += offsetXchunk
-                            process['Z'] += offsetZchunk
+                            process['X'] += xChunk
+                            process['Z'] += zChunk
                             start['Processed'][i] = process
                     
                     chunk['']['Level']['Structures']['Starts'][startKey] = start
     
     return chunk
 
-def move_dimension(a : Dimension, b : Dimension, offsetX : int, offsetZ : int):
-    """Move all chunks from <b> into <a> at <offsetX> <offsetZ>"""
+def move_dimension(a : Dimension, b : Dimension, xOffset : int, zOffset : int):
+    """Move all chunks from <b> into <a> at <xOffset> <zOffset>"""
     cacheSize = 2048
     
     for i, chunk in enumerate(b):
     
-        chunk = move_chunk(chunk, offsetX, offsetZ)
+        chunk = move_chunk(chunk, xOffset, zOffset)
         a[chunk.coords_chunk] = chunk
         
         if i % cacheSize == 0 and i != 0:
@@ -386,7 +393,7 @@ def offset_conflicts(a, b, offset):
     bMap, bXmax, bXmin, bZmax, bZmin = b
     # Data from map_and_boundaries for b
     
-    offsetX, offsetZ = offset
+    xOffset, zOffset = offset
     # Offset coordinates
     
     sideLen = McaFile.sideLength
@@ -396,10 +403,10 @@ def offset_conflicts(a, b, offset):
     defaultSearchMax = sideLen - 1
     # Default search area limits inside a region file
     
-    newXmax = bXmax + offsetX
-    newXmin = bXmin + offsetX
-    newZmax = bZmax + offsetZ
-    newZmin = bZmin + offsetZ
+    newXmax = bXmax + xOffset
+    newXmin = bXmin + xOffset
+    newZmax = bZmax + zOffset
+    newZmin = bZmin + zOffset
     
     overlapXmax = min(max(newXmax, aXmin), aXmax)
     overlapXmin = min(max(newXmin, aXmin), aXmax)
@@ -415,17 +422,17 @@ def offset_conflicts(a, b, offset):
     conflict = False
     for coords in aMap:
     
-        regionX, regionZ = coords
+        xRegion, zRegion = coords
         
         if ( 
-                regionX in range(overlapXminRegion, overlapXmaxRegion + 1)
-            and regionZ in range(overlapZminRegion, overlapZmaxRegion + 1)
+                xRegion in range(overlapXminRegion, overlapXmaxRegion + 1)
+            and zRegion in range(overlapZminRegion, overlapZmaxRegion + 1)
         ):
             # If region is on the edge of the overlap, search only relevant chunks
-            searchXmax = overlapXmaxChunk if regionX == overlapXmaxRegion else defaultSearchMax
-            searchXmin = overlapXminChunk if regionX == overlapXminRegion else defaultSearchMin
-            searchZmax = overlapZmaxChunk if regionZ == overlapZmaxRegion else defaultSearchMax
-            searchZmin = overlapZminChunk if regionZ == overlapZminRegion else defaultSearchMin
+            searchXmax = overlapXmaxChunk if xRegion == overlapXmaxRegion else defaultSearchMax
+            searchXmin = overlapXminChunk if xRegion == overlapXminRegion else defaultSearchMin
+            searchZmax = overlapZmaxChunk if zRegion == overlapZmaxRegion else defaultSearchMax
+            searchZmin = overlapZminChunk if zRegion == overlapZminRegion else defaultSearchMin
             
             for x, row in enumerate(aMap[coords][searchXmin : searchXmax + 1]):
                 for z, chunkExists in enumerate(row[searchZmin : searchZmax + 1]):
@@ -433,8 +440,8 @@ def offset_conflicts(a, b, offset):
                     if chunkExists:
                         
                         # Convert from search-relative to b-relative
-                        realX = x + searchXmin + regionX*sideLen - offsetX
-                        realZ = z + searchZmin + regionZ*sideLen - offsetZ
+                        realX = x + searchXmin + xRegion*sideLen - xOffset
+                        realZ = z + searchZmin + zRegion*sideLen - zOffset
                         
                         # Convert to region and chunk
                         realXregion, realXchunk = divmod(realX, sideLen)
