@@ -24,5 +24,5 @@ class World():
     @property
     def map_idcounts(self):
         """Returns last used map ID"""
-        path = os.join(self.folder, 'data', 'idcounts.dat')
+        path = os.path.join(self.folder, 'data', 'idcounts.dat')
         return DatFile.open(path)['']['data']['map']
