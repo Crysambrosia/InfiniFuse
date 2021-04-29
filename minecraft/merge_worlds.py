@@ -363,7 +363,7 @@ def move_dimension(a : Dimension, b : Dimension, offsetX : int, offsetZ : int):
         chunk = move_chunk(chunk, offsetX, offsetZ)
         a[chunk.coords_chunk] = chunk
         
-        if i == cacheSize and i != 0:
+        if i % cacheSize == 0 and i != 0:
             print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
             a.save_all()
             print(f'[{datetime.datetime.now()}] Saved.')
