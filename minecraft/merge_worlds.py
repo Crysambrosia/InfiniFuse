@@ -74,36 +74,62 @@ def fuse(base : str, other : str):
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    xNether, zNether = find_offsets(a, b)
+    xChunkNether, zChunkNether = find_offsets(a, b)
     
-    xOverworld = xNether * 8
-    zOverworld = zNether * 8
+    xBlockNether = xChunkNether * 16
+    zBlockNether = zChunkNether * 16
+    
+    xChunkOverworld = xChunkNether * 8
+    zChunkOverworld = zChunkNether * 8
+    
+    xBlockOverworld = xChunkOverworld * 16
+    zBlockOverworld = zChunkOverworld * 16
     
     cacheSize = 2048
     
     for i in range(b.map_idcounts + 1):
         m = DatFile(path = os.path.join(b.folder, 'data', f'map_{i}.dat'))
-        if int(m['dimension']) == 0:
-            m['xCenter'] += xOverworld
-            m['zCenter'] += zOverworld
-        elif int(m['dimension']) == -1:
-            m['xCenter'] += xNether
-            m['zCenter'] += zNether
-            
+        
+        dimension = int(m['']['data']['dimension'])
+        if dimension == 0:
+            xMap = xBlockOverworld
+            zMap = zBlockOverworld
+        elif dimension == -1:
+            xMap = xBlockNether
+            zMap = zBlockNether
+        else:
+            continue
+            # Other dimensions are not transferred, so we don't bother with their maps
+        
+        m['']['data']['xCenter'] += xMap
+        m['']['data']['zCenter'] += zMap
+
+        if 'banners' in m['']['data']:
+            for i, banner in enumerate(m['']['data']['banners']):
+                banner['Pos']['X'] += xMap
+                banner['Pos']['Z'] += zMap
+                m['']['data']['banners'][i] = banner
+        
+        if 'frames' in m['']['data']:
+            for i, frame in enumerate(m['']['data']['frames']):
+                frame['Pos']['X'] += xMap
+                frame['Pos']['Z'] += zMap
+                m['']['data']['frames'][i] = frame
+        
     
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
     move_dimension(
         a = a.dimensions['minecraft:the_nether'],
         b = b.dimensions['minecraft:the_nether'],
-        xOffset = xNether,
-        zOffset = zNether
+        xChunk = xChunkNether,
+        zChunk = zChunkNether
     )
     print(f'[{datetime.datetime.now()}] Transferring the overworld...')
     move_dimension(
         a = a.dimensions['minecraft:overworld'],
         b = b.dimensions['minecraft:overworld'],
-        xOffset = xOverworld,
-        zOffset = zOverworld
+        xChunk = xChunkOverworld,
+        zChunk = zChunkOverworld
     )
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
