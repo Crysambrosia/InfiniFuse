@@ -14,7 +14,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
     sectorLength = 4096
     sideLength = 32
     
-    def __init__(self, path):
+    def __init__(self, path : str = None, value : bytearray = None):
         
         self._cache = {}
         """Cache containing loaded chunks"""
@@ -22,11 +22,8 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.path = path
         """Path of file for IO"""
         
-        if os.path.exists(self.path):
-            with open(self.path, mode = 'rb') as f:
-                self.value = bytearray(f.read())
-        else:
-            self.value = bytearray(self.sectorLength*2)
+        self.value = value or bytearray(self.sectorLength*2)
+        """Content of represented file as a bytearray"""
     
     def __contains__(self, key):
         """Whether chunk <key> contains any data"""
@@ -174,6 +171,12 @@ class McaFile(collections.abc.Sequence, util.Cache):
         if not isinstance(value, Chunk):
             raise TypeError(f'Value must be a Chunk, not {value}')
         return value
+    
+    @classmethod
+    def open(cls, path):
+        """Open from <path>"""
+        with open(path, mode = 'rb') as f:
+            return cls(path = path, value = f.read())
     
     def save(self, key):
         """Save changes from cache to value, and from value to disk"""

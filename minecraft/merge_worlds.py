@@ -80,6 +80,10 @@ def fuse(base : str, other : str):
     
     cacheSize = 2048
     
+    for fileName in os.listdir(os.path.join(b.folder, 'data')):
+        if fileName.split('_')[0] == 'map': 
+            pass
+    
     print(f'[{datetime.datetime.now()}] Transferring the nether...')
     move_dimension(
         a = a.dimensions['minecraft:the_nether'],

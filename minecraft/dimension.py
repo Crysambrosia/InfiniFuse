@@ -47,7 +47,7 @@ class Dimension(util.Cache):
         """A generator that extracts every existing chunk from this dimension"""
         for fileName in os.listdir(self.folder):
             if os.path.splitext(fileName)[1] == '.mca':
-                for chunk in McaFile(os.path.join(self.folder, fileName)):
+                for chunk in McaFile.open(os.path.join(self.folder, fileName)):
                     if chunk is not None:
                         yield chunk
     
@@ -70,7 +70,7 @@ class Dimension(util.Cache):
         binMap = {}
         for fileName in os.listdir(self.folder):
             if os.path.splitext(fileName)[1] == '.mca':
-                f = McaFile(path = os.path.join(self.folder, fileName))
+                f = McaFile.open(path = os.path.join(self.folder, fileName))
                 binMap[f.coords_region] = f.binary_map()
         return binMap
     
