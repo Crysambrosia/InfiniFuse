@@ -90,10 +90,12 @@ class Dimension(util.Cache):
         xRegion, zRegion = key
         return McaFile(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
     
-    '''def save_all(self):
+    def save_all(self):
         """Save all McaFiles from cache"""
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            executor.map(McaFile.save_all, self._cache)'''
+        with concurrent.futures.ProcessPoolExecutor() as e:
+            # ProcessPool seems to be slightly faster than ThreadPool here
+            e.map(McaFile.save_all, self._cache)
+        self.discard_all()
     
     def save_value(self, key, value):
         """Write <value> to McaFile at coords in <key>"""
