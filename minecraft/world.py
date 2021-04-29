@@ -1,4 +1,5 @@
 from .dimension import Dimension
+from .datfile import DatFile
 import os
 
 class World():
@@ -19,3 +20,9 @@ class World():
         appdata = os.environ['APPDATA']
         folder = os.path.join(appdata, '.minecraft', 'saves', name)
         return cls(folder)
+    
+    @property
+    def map_idcounts(self):
+        """Returns last used map ID"""
+        path = os.join(self.folder, 'data', 'idcounts.dat')
+        return DatFile.open(path)['']['data']['map']
