@@ -366,7 +366,7 @@ def move_dimension(a : Dimension, b : Dimension, offsetX : int, offsetZ : int):
         if i % cacheSize == 0 and i != 0:
             print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
             a.save_all()
-            print(f'[{datetime.datetime.now()}] Saved.')
+            print(f'[{datetime.datetime.now()}] Saved, processing more...')
     
     a.save_all()
 
