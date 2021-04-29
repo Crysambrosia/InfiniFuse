@@ -1,20 +1,16 @@
 from .chunk import Chunk
 from .compression import compress, decompress
 import collections.abc
+import concurrent.futures
 import math
 import os
 import time
 import util
 
 class McaFile(collections.abc.Sequence, util.Cache):
-    """Interface for .mca files
+    """Interface for .mca files"""
     
-    For use as a context manager !
-    """
-    # Optimize this by reading the whole file at instanciation into a bytearray
-    # and making changes to the bytearray instead of an valueed file
-    # This will make changes depend on RAM latency instead of disk latency
-    __slots__ = ['_file', '_value', 'path']
+    __slots__ = ['_cache', 'path', 'value']
     sectorLength = 4096
     sideLength = 32
     
@@ -49,6 +45,11 @@ class McaFile(collections.abc.Sequence, util.Cache):
     
     def __getitem__(self, key):
         return util.Cache.__getitem__(self, key)
+    
+    def __iter__(self):
+        with concurrent.futures.ProcessPoolExecutor() as e:
+            for chunk in e.map(self.load_value, range(len(self))):
+                yield chunk
     
     def __len__(self):
         return self.sideLength ** 2
