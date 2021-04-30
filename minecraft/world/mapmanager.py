@@ -1,4 +1,4 @@
-from .datfile import DatFile
+from minecraft.datfile import DatFile
 import minecraft.TAG as TAG
 import os
 

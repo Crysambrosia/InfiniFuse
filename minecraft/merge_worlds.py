@@ -1,7 +1,7 @@
 from.datfile import DatFile
-from .dimension import Dimension
 from .mcafile import McaFile
 from .world import World
+from .world.dimension import Dimension
 import concurrent.futures
 import datetime
 import itertools

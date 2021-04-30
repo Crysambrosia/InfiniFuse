@@ -1,5 +1,5 @@
-from .chunk import Chunk
-from .mcafile import McaFile
+from minecraft.chunk import Chunk
+from minecraft.mcafile import McaFile
 import concurrent.futures
 import os
 import util
