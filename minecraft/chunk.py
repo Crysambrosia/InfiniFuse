@@ -7,13 +7,12 @@ import os
 import time
 import util
 
-class Chunk(TAG.Compound, util.Cache):
+class Chunk(TAG.MutableMapping, util.Cache):
     """Chunk data model and interface
     
     Chunks are opened and saved directly, abstracting .mca files
     """
     __slots__ = ['_cache', '_value']
-    ID = None
     
     def __init__(self, value : dict = None):
 

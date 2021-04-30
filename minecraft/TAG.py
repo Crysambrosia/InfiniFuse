@@ -17,15 +17,11 @@ def from_snbt(snbt : str, pos : int = 0):
         #print(f'Starting tests at {pos}')
         for i in sorted(Base.subtypes, key = lambda i : i.snbtPriority):
             try:
-                #print(f'Trying {i} at {pos}')
                 value, pos =  i.from_snbt(snbt, pos)
             except ValueError:
-                #print(f'Failed {i} at {pos}')
                 continue
             else:
-                #print(f'--- Success with {i} at {pos} ---')
                 return value, pos
-        #print(f'Everything failed at {pos}')
         raise ValueError(f'Invalid snbt at {pos}')
 
 #-------------------------------------- Abstract Base Classes --------------------------------------
@@ -380,6 +376,115 @@ util.make_wrappers( MutableSequence,
     ]
 )
 
+class MutableMapping(Base, collections.abc.MutableMapping):
+    """Abstract Base Class for MutableMapping type TAGs"""
+    valueType = dict
+
+    def __init__(self, value=None):
+        value = value or {}
+        self.value = {}
+        for i in value:
+            self[i] = value[i]
+    
+    @staticmethod
+    def decode(iterable):
+        iterator = iter(iterable)
+        value = {}
+        
+        while True:
+            try:
+                itemType = Base.subtypes[ Byte.decode(iterator) ]
+            except StopIteration:
+                break
+            
+            if itemType == End:
+                break
+
+            itemName = String.decode(iterator)
+            itemValue = itemType.from_bytes(iterator)
+            value[itemName] = itemValue
+        
+        return value
+    
+    @classmethod
+    def from_snbt(cls, snbt : str, pos : int = 0):
+        
+        try:
+            assert snbt[pos] == '{'
+        except (AssertionError, IndexError):
+            raise ValueError(f'Missing "{{" at {pos}!')
+        pos += 1
+        
+        regex = r'(?P<openQuote>")?(?P<name>(?(openQuote)[^"]|[^":,}])*)(?(openQuote)(?P<endQuote>")):'
+        pattern = re.compile(regex)
+        value = {}
+        
+        if snbt[pos] != '}':
+            while True:
+                match = pattern.match(snbt, pos)
+                if match is not None:
+                    value[match['name']], pos = from_snbt(snbt, match.end())
+                    if snbt[pos] == ',':
+                        pos += 1
+                        continue
+                    elif snbt[pos] == '}':
+                        break
+                    else:
+                        raise ValueError(f'Missing "," or "}}"  at {pos}')
+                else:
+                    raise ValueError(f'Invalid name at {pos}')
+        
+        return cls(value), pos+1
+
+    @staticmethod
+    def encode(value = None):
+        value = {} if value is None else value
+        byteValue = bytearray()
+        
+        for element in value:
+        
+            byteValue += Byte.encode(value[element].ID)
+            byteValue += String.encode(element)
+            byteValue += value[element].to_bytes()
+            
+            if isinstance(value[element], Compound):
+                byteValue += End.encode()
+            
+        return byteValue
+
+    def to_snbt(self):
+
+        pairs = []
+        for key in self:
+            value = self[key].to_snbt()
+            if ':' in key or ',' in key or '}' in key:
+                key = f'"{key}"'
+            pairs.append(f'{key}:{value}')
+        
+        return f'{{{",".join(pairs)}}}'
+    
+    def __setitem__(self, key, value):
+        """Replace self[key] with <value>
+        
+        <value> must type-compatible with self[key] if it exists
+        """
+        
+        if key in self:
+            if isinstance(self[key], List) and len(self[key]) > 0:
+                value = [self[key].elementType(i) for i in value]
+            value = type(self[key])(value)
+        
+        try:
+            assert isinstance(value, Base)
+        except AssertionError:
+            raise ValueError(f'{type(self)} can only contain other TAGs, not {type(value)}')
+    
+        self.value[key] = value
+
+    
+util.make_wrappers( MutableMapping,
+    nonCoercedMethods = ['keys', '__delitem__', '__getitem__', '__iter__', '__len__']
+)
 #---------------------------------------- Concrete Classes -----------------------------------------
 
 class End(Base):
@@ -609,118 +714,11 @@ class List(MutableSequence):
         ID = value[0].ID if len(value) > 0 else 0
         return Byte.encode(ID) + super().encode(value)
     
-class Compound(Base, collections.abc.MutableMapping):
-    """A Tag dictionary, containing other names tags of any type."""
+class Compound(MutableMapping):
+    """A Tag dictionary, containing other named tags of any type."""
     __slots__ = ['_value']
     ID = 10
     snbtPriority = 0
-    valueType = dict
-
-    def __init__(self, value=None):
-        value = {} if value is None else value
-        for i in value:
-            if not isinstance(value[i], Base):
-                raise ValueError(f'TAG.Compound can only contain other TAGs')
-        self.value = value
-    
-    @staticmethod
-    def decode(iterable):
-        iterator = iter(iterable)
-        value = {}
-        
-        while True:
-            try:
-                itemType = Base.subtypes[ Byte.decode(iterator) ]
-            except StopIteration:
-                break
-            
-            if itemType == End:
-                break
-
-            itemName = String.decode(iterator)
-            itemValue = itemType.from_bytes(iterator)
-            value[itemName] = itemValue
-        
-        return value
-    
-    @classmethod
-    def from_snbt(cls, snbt : str, pos : int = 0):
-        
-        try:
-            assert snbt[pos] == '{'
-        except (AssertionError, IndexError):
-            raise ValueError(f'Missing "{{" at {pos}!')
-        pos += 1
-        
-        regex = r'(?P<openQuote>")?(?P<name>(?(openQuote)[^"]|[^":,}])*)(?(openQuote)(?P<endQuote>")):'
-        pattern = re.compile(regex)
-        value = {}
-        
-        if snbt[pos] != '}':
-            while True:
-                match = pattern.match(snbt, pos)
-                if match is not None:
-                    value[match['name']], pos = from_snbt(snbt, match.end())
-                    if snbt[pos] == ',':
-                        pos += 1
-                        continue
-                    elif snbt[pos] == '}':
-                        break
-                    else:
-                        raise ValueError(f'Missing "," or "}}"  at {pos}')
-                else:
-                    raise ValueError(f'Invalid name at {pos}')
-        
-        return cls(value), pos+1
-
-    @staticmethod
-    def encode(value = None):
-        value = {} if value is None else value
-        byteValue = bytearray()
-        
-        for element in value:
-        
-            byteValue += Byte.encode(value[element].ID)
-            byteValue += String.encode(element)
-            byteValue += value[element].to_bytes()
-            
-            if isinstance(value[element], Compound):
-                byteValue += End.encode()
-            
-        return byteValue
-
-    def to_snbt(self):
-
-        pairs = []
-        for key in self:
-            value = self[key].to_snbt()
-            if ':' in key or ',' in key or '}' in key:
-                key = f'"{key}"'
-            pairs.append(f'{key}:{value}')
-        
-        return f'{{{",".join(pairs)}}}'
-    
-    def __setitem__(self, key, value):
-        """Replace self[key] with <value>
-        
-        <value> must type-compatible with self[key] if it exists
-        """
-        
-        if key in self:
-            if isinstance(self[key], List) and len(self[key]) > 0:
-                value = [self[key].elementType(i) for i in value]
-            value = type(self[key])(value)
-        
-        try:
-            assert isinstance(value, Base)
-        except AssertionError:
-            raise ValueError('TAGs can only contain other tags !')
-    
-        self.value[key] = value
-    
-util.make_wrappers( Compound,
-    nonCoercedMethods = ['keys', '__delitem__', '__getitem__', '__iter__', '__len__']
-)
 
 class Int_Array(MutableSequence):
     """A Int array

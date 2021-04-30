@@ -2,14 +2,13 @@ import json
 import minecraft.TAG as TAG
 import os
 
-class BlockState(TAG.Compound):
+class BlockState(TAG.MutableMapping):
     """Represents a block with all of its properties.
     
     This does NOT contain coordinates.
     Chunks, and Worlds by extension, are responsible for coordinates.
     """
     __slots__ = ['_value']
-    ID = None
     
     def __init__(self, value : dict = None):
         """Create a blockstate, checking given properties for correctness"""

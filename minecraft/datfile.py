@@ -1,11 +1,10 @@
 from minecraft.compression import compress, decompress
 import minecraft.TAG as TAG
 
-class DatFile(TAG.Compound):
+class DatFile(TAG.MutableMapping):
     """Interface for .dat files"""
     
     __slots__ = ['_path', '_value', 'compression']
-    ID = None
 
     def __init__( self, 
         compression : int = None,
