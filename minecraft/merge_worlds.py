@@ -71,6 +71,11 @@ def find_offsets(a : World, b : World):
 def fuse(base : str, other : str):
     """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
     
+    # These make more sense as their own functions,
+    # but also access to way too many variables defined here
+    # to be separable from this function.
+    # They don't even make sense to use on their own regardless
+    
     def update_map_item(item):
         """Updates a map item's contained positional data"""
         if 'Decorations' in item['tag']:
@@ -92,6 +97,198 @@ def fuse(base : str, other : str):
         
         item['tag']['map'] += mapIdOffset
         return item
+    
+    def move_chunk(chunk):
+        """Move chunk from b to a"""
+        # Take Care of Item entities next
+        chunk['']['Level']['xPos'] += xChunk
+        chunk['']['Level']['zPos'] += zChunk
+        
+        # Update all entity data that stores position
+        if 'Entities' in chunk['']['Level']:
+            for i, entity in enumerate(chunk['']['Level']['Entities']):
+                entity['Pos'][0] += xBlock
+                entity['Pos'][2] += zBlock
+                
+                for idx, _ in enumerate(entity['UUID']):
+                    entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
+                
+                for key in entity:
+                
+                    if key == 'Brain':
+                        for memKey in entity['Brain']['memories']:
+                            if memKey in [
+                                'minecraft:home',
+                                'minecraft:job_site',
+                                'minecraft:meeting_point',
+                                'minecraft:potential_job_site'
+                            ]:
+                                memory = entity['Brain']['memories'][memKey]
+                                
+                                if memory['value']['dimension'] == 'minecraft:overworld':
+                                    memory['value']['pos'][0] += xBlockOverworld
+                                    memory['value']['pos'][2] += zBlockOverworld
+                                    
+                                elif memory['value']['dimension'] == 'minecraft:the_nether':
+                                    memory['value']['pos'][0] += xBlockNether
+                                    memory['value']['pos'][2] += zBlockNether
+                                
+                                entity['Brain']['memories'][memKey] = memory
+                        
+                    elif key in [
+                        'HandItems', 
+                        'Inventory',
+                        'Items'
+                    ]:
+                        for itemIdx, item in enumerate(entity['HandItems']):
+                            if item['id'] == 'minecraft:filled_map':
+                                entity['HandItems'][itemIdx] = update_map_item(item)
+                        
+                    elif key in [
+                        'BeamTarget'
+                        'FlowerPos',
+                        'HivePos',
+                        'Leash',
+                        'PatrolTarget',
+                        'WanderTarget'
+                    ]:
+                        entity[key]['X'] += xBlock
+                        entity[key]['Z'] += zBlock
+                        
+                    elif key in [
+                        'AX',
+                        'APX',
+                        'BoundX',
+                        'HomePosX',
+                        'SleepingX',
+                        'TileX',
+                        'TravelPosX',
+                        'TreasurePosX'
+                    ]:
+                        entity[key] += xBlock
+                        
+                    elif key in [
+                        'AZ',
+                        'APZ',
+                        'BoundZ',
+                        'HomePosZ',
+                        'SleepingZ',
+                        'TileZ',
+                        'TravelPosZ',
+                        'TreasurePosZ'
+                    ]:
+                        entity[key] += zBlock
+                
+                chunk['']['Level']['Entities'][i] = entity
+       
+        # Update tile entities
+        # This does NOT update map IDs yet !
+        if 'TileEntities' in chunk['']['Level']:
+            for i, entity in enumerate(chunk['']['Level']['TileEntities']):
+                entity['x'] += xBlock
+                entity['z'] += zBlock
+                
+                for key in entity:
+                    if key in ['ExitPortal', 'FlowerPos']:
+                        entity[key]['X'] += xBlock
+                        entity[key]['Z'] += zBlock
+                
+                chunk['']['Level']['TileEntities'][i] = entity
+        
+        # Update TileTicks
+        if 'TileTicks' in chunk['']['Level']:
+            for i, tick in enumerate(chunk['']['Level']['TileTicks']):
+                tick['x'] += xBlock
+                tick['z'] += zBlock
+            
+                chunk['']['Level']['TileTicks'][i] = tick
+        
+        # Update LiquidTicks
+        if 'LiquidTicks' in chunk['']['Level']:
+            for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
+                tick['x'] += xBlock
+                tick['z'] += zBlock
+            
+                chunk['']['Level']['LiquidTicks'][i] = tick
+        
+        # Update Structures
+        if 'Structures' in chunk['']['Level']:
+        
+            # Update References
+            if 'References' in chunk['']['Level']['Structures']:
+                for key, reference in chunk['']['Level']['Structures']['References'].items():
+                    if reference != []:
+                        for i, coords in enumerate(reference):
+                            x = TAG.Int()
+                            z = TAG.Int()
+                            
+                            x.unsigned = util.get_bits(coords,  0, 32)
+                            z.unsigned = util.get_bits(coords, 32, 64)
+                            x += xChunk
+                            z += zChunk
+                            try:
+                                coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
+                                coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
+                            except struct.error as e:
+                                print(x, z, coords)
+                                raise e
+                            
+                            reference[i] = coords
+                        
+                        chunk['']['Level']['Structures']['References'][key] = reference
+            
+            # Update Starts
+            if 'Starts' in chunk['']['Level']['Structures']:
+                for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
+                    if start['id'] != 'INVALID':
+                        
+                        start['BB'][0] += xBlock
+                        start['BB'][2] += zBlock
+                        start['BB'][3] += xBlock
+                        start['BB'][5] += zBlock
+                        
+                        start['ChunkX'] += xChunk
+                        start['ChunkZ'] += zChunk
+                        
+                        if 'Children' in start:
+                            for i, child in enumerate(start['Children']):
+                                child['BB'][0] += xBlock
+                                child['BB'][2] += zBlock
+                                child['BB'][3] += xBlock
+                                child['BB'][5] += zBlock
+                                
+                                for key in child:
+                                    if key == 'Entrances':
+                                        for iEntrance, entrance in enumerate(child['Entrances']):
+                                            entrance[0] += xBlock
+                                            entrance[2] += zBlock
+                                            entrance[3] += xBlock
+                                            entrance[5] += zBlock
+                                            child['Entrances'][iEntrance] = entrance
+                                        
+                                    elif key == 'junctions':
+                                        for iJunction, junction in enumerate(child['junctions']):
+                                            junction['source_x'] += xBlock
+                                            junction['source_z'] += zBlock
+                                            child['junctions'][iJunction] = junction
+                                        
+                                    elif key in ['PosX', 'TPX']:
+                                        child[key] += xBlock
+                                        
+                                    elif key in ['PosZ', 'TPZ']:
+                                        child[key] += zBlock
+                                
+                                start['Children'][i] = child
+                        
+                        if 'Processed' in start:
+                            for i, process in enumerate(start['Processed']):
+                                process['X'] += xChunk
+                                process['Z'] += zChunk
+                                start['Processed'][i] = process
+                        
+                        chunk['']['Level']['Structures']['Starts'][startKey] = start
+    
+        a.dimensions[dimension][chunk.coords_chunk] = chunk
     
     cacheSize = 2048
     # Number of chunks to be moved before clearing caches
@@ -163,195 +360,8 @@ def fuse(base : str, other : str):
         print(f'[{datetime.datetime.now()}] Transferring {dimension}...')
         
         for i, chunk in enumerate(b.dimensions[dimension]):
-        
-            chunk['']['Level']['xPos'] += xChunk
-            chunk['']['Level']['zPos'] += zChunk
             
-            # Update all entity data that stores position
-            if 'Entities' in chunk['']['Level']:
-                for i, entity in enumerate(chunk['']['Level']['Entities']):
-                    entity['Pos'][0] += xBlock
-                    entity['Pos'][2] += zBlock
-                    
-                    for idx, _ in enumerate(entity['UUID']):
-                        entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
-                    
-                    for key in entity:
-                    
-                        if key == 'Brain':
-                            for memKey in entity['Brain']['memories']:
-                                if memKey in [
-                                    'minecraft:home',
-                                    'minecraft:job_site',
-                                    'minecraft:meeting_point',
-                                    'minecraft:potential_job_site'
-                                ]:
-                                    memory = entity['Brain']['memories'][memKey]
-                                    
-                                    if memory['value']['dimension'] == 'minecraft:overworld':
-                                        memory['value']['pos'][0] += xBlockOverworld
-                                        memory['value']['pos'][2] += zBlockOverworld
-                                        
-                                    elif memory['value']['dimension'] == 'minecraft:the_nether':
-                                        memory['value']['pos'][0] += xBlockNether
-                                        memory['value']['pos'][2] += zBlockNether
-                                    
-                                    entity['Brain']['memories'][memKey] = memory
-                            
-                        elif key in [
-                            'HandItems', 
-                            'Inventory',
-                            'Items'
-                        ]:
-                            for itemIdx, item in enumerate(entity['HandItems']):
-                                if item['id'] == 'minecraft:filled_map':
-                                    entity['HandItems'][itemIdx] = update_map_item(item)
-                            
-                        elif key in [
-                            'BeamTarget'
-                            'FlowerPos',
-                            'HivePos',
-                            'Leash',
-                            'PatrolTarget',
-                            'WanderTarget'
-                        ]:
-                            entity[key]['X'] += xBlock
-                            entity[key]['Z'] += zBlock
-                            
-                        elif key in [
-                            'AX',
-                            'APX',
-                            'BoundX',
-                            'HomePosX',
-                            'SleepingX',
-                            'TileX',
-                            'TravelPosX',
-                            'TreasurePosX'
-                        ]:
-                            entity[key] += xBlock
-                            
-                        elif key in [
-                            'AZ',
-                            'APZ',
-                            'BoundZ',
-                            'HomePosZ',
-                            'SleepingZ',
-                            'TileZ',
-                            'TravelPosZ',
-                            'TreasurePosZ'
-                        ]:
-                            entity[key] += zBlock
-                    
-                    chunk['']['Level']['Entities'][i] = entity
-           
-            # Update tile entities
-            # This does NOT update map IDs yet !
-            if 'TileEntities' in chunk['']['Level']:
-                for i, entity in enumerate(chunk['']['Level']['TileEntities']):
-                    entity['x'] += xBlock
-                    entity['z'] += zBlock
-                    
-                    for key in entity:
-                        if key in ['ExitPortal', 'FlowerPos']:
-                            entity[key]['X'] += xBlock
-                            entity[key]['Z'] += zBlock
-                    
-                    chunk['']['Level']['TileEntities'][i] = entity
-            
-            # Update TileTicks
-            if 'TileTicks' in chunk['']['Level']:
-                for i, tick in enumerate(chunk['']['Level']['TileTicks']):
-                    tick['x'] += xBlock
-                    tick['z'] += zBlock
-                
-                    chunk['']['Level']['TileTicks'][i] = tick
-            
-            # Update LiquidTicks
-            if 'LiquidTicks' in chunk['']['Level']:
-                for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
-                    tick['x'] += xBlock
-                    tick['z'] += zBlock
-                
-                    chunk['']['Level']['LiquidTicks'][i] = tick
-            
-            # Update Structures
-            if 'Structures' in chunk['']['Level']:
-            
-                # Update References
-                if 'References' in chunk['']['Level']['Structures']:
-                    for key, reference in chunk['']['Level']['Structures']['References'].items():
-                        if reference != []:
-                            for i, coords in enumerate(reference):
-                                x = TAG.Int()
-                                z = TAG.Int()
-                                
-                                x.unsigned = util.get_bits(coords,  0, 32)
-                                z.unsigned = util.get_bits(coords, 32, 64)
-                                x += xChunk
-                                z += zChunk
-                                try:
-                                    coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
-                                    coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
-                                except struct.error as e:
-                                    print(x, z, coords)
-                                    raise e
-                                
-                                reference[i] = coords
-                            
-                            chunk['']['Level']['Structures']['References'][key] = reference
-                
-                # Update Starts
-                if 'Starts' in chunk['']['Level']['Structures']:
-                    for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
-                        if start['id'] != 'INVALID':
-                            
-                            start['BB'][0] += xBlock
-                            start['BB'][2] += zBlock
-                            start['BB'][3] += xBlock
-                            start['BB'][5] += zBlock
-                            
-                            start['ChunkX'] += xChunk
-                            start['ChunkZ'] += zChunk
-                            
-                            if 'Children' in start:
-                                for i, child in enumerate(start['Children']):
-                                    child['BB'][0] += xBlock
-                                    child['BB'][2] += zBlock
-                                    child['BB'][3] += xBlock
-                                    child['BB'][5] += zBlock
-                                    
-                                    for key in child:
-                                        if key == 'Entrances':
-                                            for iEntrance, entrance in enumerate(child['Entrances']):
-                                                entrance[0] += xBlock
-                                                entrance[2] += zBlock
-                                                entrance[3] += xBlock
-                                                entrance[5] += zBlock
-                                                child['Entrances'][iEntrance] = entrance
-                                            
-                                        elif key == 'junctions':
-                                            for iJunction, junction in enumerate(child['junctions']):
-                                                junction['source_x'] += xBlock
-                                                junction['source_z'] += zBlock
-                                                child['junctions'][iJunction] = junction
-                                            
-                                        elif key in ['PosX', 'TPX']:
-                                            child[key] += xBlock
-                                            
-                                        elif key in ['PosZ', 'TPZ']:
-                                            child[key] += zBlock
-                                    
-                                    start['Children'][i] = child
-                            
-                            if 'Processed' in start:
-                                for i, process in enumerate(start['Processed']):
-                                    process['X'] += xChunk
-                                    process['Z'] += zChunk
-                                    start['Processed'][i] = process
-                            
-                            chunk['']['Level']['Structures']['Starts'][startKey] = start
-            
-            a.dimensions[dimension][chunk.coords_chunk] = chunk
+            move_chunk(chunk)
             
             if i % cacheSize == 0 and i != 0:
                 print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
