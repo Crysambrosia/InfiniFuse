@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
-from .compression import compress, decompress
 import collections.abc
-import functools
-import operator
 import re
 import struct
 import util
+
+# Defines classes for all tag types, with common logic contained in abstract base classes
+# Abstract Base Classes and Concrete classes are intertwined. I have separated them for convenience
+# but putting them in separate files won't work, as some base classes use some of the concrete ones.
+# If you can separate them without making a complete mess, please do so !
+# I couldn't figure out how in a way that makes sense.
 
 #-------------------------------------------- Functions --------------------------------------------
 
