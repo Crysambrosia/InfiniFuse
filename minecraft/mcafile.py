@@ -29,9 +29,6 @@ class McaFile(collections.abc.Sequence, util.Cache):
         """Whether chunk <key> contains any data"""
         return self.get_header(key) is not None
     
-    def __del__(self):
-        self.__exit__()
-    
     def __enter__(self):
         """Return self"""
         return self
@@ -179,7 +176,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         """Load data from file as self.path to self.value"""
         if os.path.exists(self.path):
             with open(self.path, mode = 'rb') as f:
-                self.value = f.read()
+                self.value = bytearray(f.read())
         else:
             self.value = bytearray(self.sectorLength*2)
     
