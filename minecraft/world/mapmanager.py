@@ -32,7 +32,7 @@ class MapManager():
     def append(self, value):
         """Add a map to this world"""
         self.idcounts += 1
-        self[self.idcount] = value
+        self[self.idcounts] = value
 
     def convert_key(self, key):
         key = int(key)
@@ -47,25 +47,43 @@ class MapManager():
         """Biggest used map ID, as stored in idcounts.dat"""
         path = os.path.join(self.folder, 'idcounts.dat')
         
-        with DatFile.open(path) as f:
-        
-            if 'DataVersion' not in f['']:
-                f[''] = TAG.Compound(
-                    {
-                        'data' : TAG.Compound(
-                            {
-                                'map' : TAG.Int(f['']['map'])
-                            }
-                        ),
-                        'DataVersion' : TAG.Int(2578)
-                    }
-                )
+        if os.path.exists(path):
+            with DatFile.open(path) as f:
             
-            return f['']['data']['map']
+                if 'DataVersion' not in f['']:
+                    f[''] = TAG.Compound(
+                        {
+                            'data' : TAG.Compound(
+                                {
+                                    'map' : TAG.Int(f['']['map'])
+                                }
+                            ),
+                            'DataVersion' : TAG.Int(2578)
+                        }
+                    )
+                
+                return f['']['data']['map']
+        else:
+            return -1
 
     @idcounts.setter
     def idcounts(self, value):
         """Change idcounts. Could result in weird behavior !"""
+        
+        if value < 0:
+            raise ValueError('idcounts must be at least 0 !')
+        
         path = os.path.join(self.folder, 'idcounts.dat')
+
         with DatFile.open(path) as f:
-            f['']['data']['map'] = value
+            if os.path.exists(path):
+                f['']['data']['map'] = value
+            else:
+                f.value = TAG.Compound({
+                    '' : TAG.Compound({
+                        'data' : TAG.Compound({
+                            'map' : TAG.Int(value)
+                        }),
+                        'DataVersion' : TAG.Int(2578)
+                    })
+                })
