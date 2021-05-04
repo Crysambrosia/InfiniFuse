@@ -76,6 +76,98 @@ def fuse(base : str, other : str):
     # to be separable from this function.
     # They don't even make sense to use on their own regardless
     
+    def update_entity(entity):
+        """Update an entity's data.
+        
+        Separated into its own function for recursive calls
+        """
+        entity['Pos'][0] += xBlock
+        entity['Pos'][2] += zBlock
+        
+        for idx, _ in enumerate(entity['UUID']):
+            entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
+        
+        for key in entity:
+        
+            if key == 'Passengers':
+                for passengerIdx, passenger in enumerate(entity['Passengers']):
+                    entity['Passengers'][passengerIdx] = update_entity(passenger)
+               
+            elif key == 'TileEntityData':
+                entity['TileEntityData'] = update_tile_entity(entity['TileEntityData'])
+               
+            elif key == 'Brain':
+                for memKey in entity['Brain']['memories']:
+                    if memKey in [
+                        'minecraft:home',
+                        'minecraft:job_site',
+                        'minecraft:meeting_point',
+                        'minecraft:potential_job_site'
+                    ]:
+                        memory = entity['Brain']['memories'][memKey]
+                        
+                        if memory['value']['dimension'] == 'minecraft:overworld':
+                            memory['value']['pos'][0] += xBlockOverworld
+                            memory['value']['pos'][2] += zBlockOverworld
+                            
+                        elif memory['value']['dimension'] == 'minecraft:the_nether':
+                            memory['value']['pos'][0] += xBlockNether
+                            memory['value']['pos'][2] += zBlockNether
+                        
+                        entity['Brain']['memories'][memKey] = memory
+                
+            elif key == 'Item':
+            
+                if entity['Item']['id'] == 'minecraft:filled_map':
+                    entity['Item'] = update_map_item(entity['Item'])
+                
+            elif key in [
+                'ArmorItems',
+                'HandItems', 
+                'Inventory',
+                'Items'
+            ]:
+                for itemIdx, item in enumerate(entity[key]):
+                    if item['id'] == 'minecraft:filled_map':
+                        entity[key][itemIdx] = update_map_item(item)
+            
+            elif key in [
+                'BeamTarget'
+                'FlowerPos',
+                'HivePos',
+                'Leash',
+                'PatrolTarget',
+                'WanderTarget'
+            ]:
+                entity[key]['X'] += xBlock
+                entity[key]['Z'] += zBlock
+                
+            elif key in [
+                'AX',
+                'APX',
+                'BoundX',
+                'HomePosX',
+                'SleepingX',
+                'TileX',
+                'TravelPosX',
+                'TreasurePosX'
+            ]:
+                entity[key] += xBlock
+                
+            elif key in [
+                'AZ',
+                'APZ',
+                'BoundZ',
+                'HomePosZ',
+                'SleepingZ',
+                'TileZ',
+                'TravelPosZ',
+                'TreasurePosZ'
+            ]:
+                entity[key] += zBlock
+        
+        return entity
+    
     def update_map_item(item):
         """Updates a map item's contained positional data"""
         if 'Decorations' in item['tag']:
@@ -98,104 +190,40 @@ def fuse(base : str, other : str):
         item['tag']['map'] += mapIdOffset
         return item
     
+    def update_tile_entity(tile):
+        
+        for key in tile:
+        
+            if key == 'x':
+                tile['x'] += xBlock
+                
+            elif key == 'z':
+                tile['z'] += zBlock
+                
+            elif key == 'Items':
+                for itemIdx, item in enumerate(tile['Items']):
+                    if item['id'] == 'minecraft:filled_map':
+                        tile['Items'][itemIdx] = update_map_item(item)
+                
+            elif key in ['ExitPortal', 'FlowerPos']:
+                tile[key]['X'] += xBlock
+                tile[key]['Z'] += zBlock
+        
+        return tile
+    
     def move_chunk(chunk):
         """Move chunk from b to a"""
-        # Take Care of Item entities next
         chunk['']['Level']['xPos'] += xChunk
         chunk['']['Level']['zPos'] += zChunk
         
-        # Update all entity data that stores position
         if 'Entities' in chunk['']['Level']:
             for i, entity in enumerate(chunk['']['Level']['Entities']):
-                entity['Pos'][0] += xBlock
-                entity['Pos'][2] += zBlock
-                
-                for idx, _ in enumerate(entity['UUID']):
-                    entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
-                
-                for key in entity:
-                
-                    if key == 'Brain':
-                        for memKey in entity['Brain']['memories']:
-                            if memKey in [
-                                'minecraft:home',
-                                'minecraft:job_site',
-                                'minecraft:meeting_point',
-                                'minecraft:potential_job_site'
-                            ]:
-                                memory = entity['Brain']['memories'][memKey]
-                                
-                                if memory['value']['dimension'] == 'minecraft:overworld':
-                                    memory['value']['pos'][0] += xBlockOverworld
-                                    memory['value']['pos'][2] += zBlockOverworld
-                                    
-                                elif memory['value']['dimension'] == 'minecraft:the_nether':
-                                    memory['value']['pos'][0] += xBlockNether
-                                    memory['value']['pos'][2] += zBlockNether
-                                
-                                entity['Brain']['memories'][memKey] = memory
-                        
-                    elif key in [
-                        'HandItems', 
-                        'Inventory',
-                        'Items'
-                    ]:
-                        for itemIdx, item in enumerate(entity['HandItems']):
-                            if item['id'] == 'minecraft:filled_map':
-                                entity['HandItems'][itemIdx] = update_map_item(item)
-                        
-                    elif key in [
-                        'BeamTarget'
-                        'FlowerPos',
-                        'HivePos',
-                        'Leash',
-                        'PatrolTarget',
-                        'WanderTarget'
-                    ]:
-                        entity[key]['X'] += xBlock
-                        entity[key]['Z'] += zBlock
-                        
-                    elif key in [
-                        'AX',
-                        'APX',
-                        'BoundX',
-                        'HomePosX',
-                        'SleepingX',
-                        'TileX',
-                        'TravelPosX',
-                        'TreasurePosX'
-                    ]:
-                        entity[key] += xBlock
-                        
-                    elif key in [
-                        'AZ',
-                        'APZ',
-                        'BoundZ',
-                        'HomePosZ',
-                        'SleepingZ',
-                        'TileZ',
-                        'TravelPosZ',
-                        'TreasurePosZ'
-                    ]:
-                        entity[key] += zBlock
-                
-                chunk['']['Level']['Entities'][i] = entity
+                chunk['']['Level']['Entities'][i] = update_entity(entity)
        
-        # Update tile entities
-        # This does NOT update map IDs yet !
         if 'TileEntities' in chunk['']['Level']:
-            for i, entity in enumerate(chunk['']['Level']['TileEntities']):
-                entity['x'] += xBlock
-                entity['z'] += zBlock
-                
-                for key in entity:
-                    if key in ['ExitPortal', 'FlowerPos']:
-                        entity[key]['X'] += xBlock
-                        entity[key]['Z'] += zBlock
-                
-                chunk['']['Level']['TileEntities'][i] = entity
+            for i, tile in enumerate(chunk['']['Level']['TileEntities']):
+                chunk['']['Level']['TileEntities'][i] = update_tile_entity(entity)
         
-        # Update TileTicks
         if 'TileTicks' in chunk['']['Level']:
             for i, tick in enumerate(chunk['']['Level']['TileTicks']):
                 tick['x'] += xBlock
@@ -203,7 +231,6 @@ def fuse(base : str, other : str):
             
                 chunk['']['Level']['TileTicks'][i] = tick
         
-        # Update LiquidTicks
         if 'LiquidTicks' in chunk['']['Level']:
             for i, tick in enumerate(chunk['']['Level']['LiquidTicks']):
                 tick['x'] += xBlock
@@ -211,7 +238,6 @@ def fuse(base : str, other : str):
             
                 chunk['']['Level']['LiquidTicks'][i] = tick
         
-        # Update Structures
         if 'Structures' in chunk['']['Level']:
         
             # Update References
