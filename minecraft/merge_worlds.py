@@ -117,9 +117,9 @@ def fuse(base : str, other : str):
                         entity['Brain']['memories'][memKey] = memory
                 
             elif key == 'Item':
-            
-                if entity['Item']['id'] == 'minecraft:filled_map':
-                    entity['Item'] = update_map_item(entity['Item'])
+                if 'id' in entity['Item']:
+                    if entity['Item']['id'] == 'minecraft:filled_map':
+                        entity['Item'] = update_map_item(entity['Item'])
                 
             elif key in [
                 'ArmorItems',
@@ -128,8 +128,9 @@ def fuse(base : str, other : str):
                 'Items'
             ]:
                 for itemIdx, item in enumerate(entity[key]):
-                    if item['id'] == 'minecraft:filled_map':
-                        entity[key][itemIdx] = update_map_item(item)
+                    if 'id' in item:
+                        if item['id'] == 'minecraft:filled_map':
+                            entity[key][itemIdx] = update_map_item(item)
             
             elif key in [
                 'BeamTarget'
@@ -173,15 +174,23 @@ def fuse(base : str, other : str):
         if 'Decorations' in item['tag']:
         
             mapId = item['tag']['map']
-            mapDimension = int(b.maps[mapId]['']['data']['dimension'])
+            mapDimension = b.maps[mapId]['']['data']['dimension']
+            
+            if isinstance(mapDimension, TAG.Byte):
+                if mapDimension == 0:
+                    mapDimension = 'minecraft:overworld'
+                elif mapDimension == -1:
+                    mapDimension = 'minecraft:the_nether'
+                elif mapDimension == 1:
+                    mapDimension = 'minecraft:the_end'
             
             for decorationIdx, decoration in enumerate(item['tag']['Decorations']):
             
-                if mapDimension == 0:
+                if mapDimension == 'minecraft:overworld':
                     decoration['x'] += xBlockOverworld
                     decoration['z'] += zBlockOverworld
                     
-                elif mapDimension == -1:
+                elif mapDimension == 'minecraft:the_nether':
                     decoration['x'] += xBlockNether
                     decoration['z'] += zBlockNether
                 
@@ -202,8 +211,9 @@ def fuse(base : str, other : str):
                 
             elif key == 'Items':
                 for itemIdx, item in enumerate(tile['Items']):
-                    if item['id'] == 'minecraft:filled_map':
-                        tile['Items'][itemIdx] = update_map_item(item)
+                    if 'id' in item:
+                        if item['id'] == 'minecraft:filled_map':
+                            tile['Items'][itemIdx] = update_map_item(item)
                 
             elif key in ['ExitPortal', 'FlowerPos']:
                 tile[key]['X'] += xBlock
@@ -222,7 +232,7 @@ def fuse(base : str, other : str):
        
         if 'TileEntities' in chunk['']['Level']:
             for i, tile in enumerate(chunk['']['Level']['TileEntities']):
-                chunk['']['Level']['TileEntities'][i] = update_tile_entity(entity)
+                chunk['']['Level']['TileEntities'][i] = update_tile_entity(tile)
         
         if 'TileTicks' in chunk['']['Level']:
             for i, tick in enumerate(chunk['']['Level']['TileTicks']):
@@ -339,11 +349,25 @@ def fuse(base : str, other : str):
     
     for m in b.maps:
         
-        mapDimension = int(m['']['data']['dimension'])
-        if mapDimension == 0:
+        mapDimension = m['']['data']['dimension']
+        
+        if isinstance(mapDimension, TAG.Byte):
+            if mapDimension == 0:
+                mapDimension = 'minecraft:overworld'
+                
+            elif mapDimension == -1:
+                mapDimension = 'minecraft:the_nether'
+                
+            elif mapDimension == 1:
+                mapDimension = 'minecraft:the_end'
+                
+            else:
+                mapDimension = 'unknown'
+        
+        if mapDimension == 'minecraft:overworld':
             xMap = xBlockOverworld
             zMap = zBlockOverworld
-        elif mapDimension == -1:
+        elif mapDimension == 'minecraft:the_nether':
             xMap = xBlockNether
             zMap = zBlockNether
         else:
@@ -391,7 +415,7 @@ def fuse(base : str, other : str):
             
             if i % cacheSize == 0 and i != 0:
                 print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
-                a.save_all()
+                a.dimensions[dimension].save_all()
                 print(f'[{datetime.datetime.now()}] Saved, processing more...')
         
         a.dimensions[dimension].save_all()
