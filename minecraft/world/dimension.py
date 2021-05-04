@@ -94,7 +94,8 @@ class Dimension(util.Cache):
         """Save all McaFiles from cache"""
         with concurrent.futures.ProcessPoolExecutor() as e:
             # ProcessPool seems to be slightly faster than ThreadPool here
-            e.map(McaFile.write, self._cache)
+            for _ in e.map(McaFile.write, self._cache.values()):
+                pass
         self.discard_all()
     
     def save_value(self, key, value):
