@@ -74,12 +74,14 @@ class MapManager():
             raise ValueError('idcounts must be at least 0 !')
         
         path = os.path.join(self.folder, 'idcounts.dat')
-
-        with DatFile.open(path) as f:
-            if os.path.exists(path):
+        
+        if os.path.exists(path):
+            with DatFile.open(path) as f:
                 f['']['data']['map'] = value
-            else:
-                f.value = TAG.Compound({
+        else:
+            f = DatFile(
+                path = path,
+                value = TAG.Compound({
                     '' : TAG.Compound({
                         'data' : TAG.Compound({
                             'map' : TAG.Int(value)
@@ -87,3 +89,5 @@ class MapManager():
                         'DataVersion' : TAG.Int(2578)
                     })
                 })
+            )
+            f.write()
