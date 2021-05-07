@@ -1,6 +1,5 @@
 from .dimension import Dimension
 from .mapmanager import MapManager
-from minecraft.datfile import DatFile
 import os
 
 class World():

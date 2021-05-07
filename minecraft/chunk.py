@@ -1,4 +1,3 @@
-from .compression import compress, decompress
 from .blockstate import BlockState
 import math
 import minecraft.TAG as TAG

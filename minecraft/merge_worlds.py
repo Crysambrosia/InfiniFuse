@@ -1,4 +1,3 @@
-from.datfile import DatFile
 from .mcafile import McaFile
 from .world import World
 from .world.dimension import Dimension
