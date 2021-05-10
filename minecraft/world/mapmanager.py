@@ -15,7 +15,8 @@ class MapManager():
         """Get map number <key>"""
         key = self.convert_key(key = key)
         path = os.path.join(self.folder, f'map_{key}.dat')
-        return DatFile.open(path)
+        with DatFile(path) as f:
+            return TAG.Compound(f)
     
     def __iter__(self):
         """Generator object returning every contained map"""
@@ -47,24 +48,13 @@ class MapManager():
         """Biggest used map ID, as stored in idcounts.dat"""
         path = os.path.join(self.folder, 'idcounts.dat')
         
-        if os.path.exists(path):
-            with DatFile.open(path) as f:
-            
-                if 'DataVersion' not in f['']:
-                    f[''] = TAG.Compound(
-                        {
-                            'data' : TAG.Compound(
-                                {
-                                    'map' : TAG.Int(f['']['map'])
-                                }
-                            ),
-                            'DataVersion' : TAG.Int(2578)
-                        }
-                    )
-                
+        with DatFile(path) as f:
+            if f == {}:
+                return -1
+            elif 'DataVersion' in f['']:
                 return f['']['data']['map']
-        else:
-            return -1
+            else:
+                return f['']['map']
 
     @idcounts.setter
     def idcounts(self, value):
@@ -75,13 +65,10 @@ class MapManager():
         
         path = os.path.join(self.folder, 'idcounts.dat')
         
-        if os.path.exists(path):
-            with DatFile.open(path) as f:
-                f['']['data']['map'] = value
-        else:
-            f = DatFile(
-                path = path,
-                value = TAG.Compound({
+        with DatFile(path) as f:
+            if f == {}:
+            
+                f.value = TAG.Compound({
                     '' : TAG.Compound({
                         'data' : TAG.Compound({
                             'map' : TAG.Int(value)
@@ -89,5 +76,9 @@ class MapManager():
                         'DataVersion' : TAG.Int(2578)
                     })
                 })
-            )
-            f.write()
+                
+            elif 'Dataversion' in f['']:
+                f['']['data']['map'] = value
+                
+            else:
+                f['']['map'] = value
