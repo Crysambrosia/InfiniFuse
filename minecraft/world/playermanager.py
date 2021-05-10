@@ -5,6 +5,7 @@ import os
 
 class Player():
     """Handles accessing and modifying a player's data and stats"""
+    
     def __init__(self, uuid : str, folder : str):
         """UUID must be in the hyphenated-hexadecimal format"""
         self.folder = folder
@@ -15,7 +16,8 @@ class Player():
             self.stats = json.load(f)
         
         dataPath = os.path.join(self.folder, 'playerdata', f'{self.uuid}.dat')
-        self.playerdata = DatFile.open(path = dataPath)
+        with DatFile(dataPath) as f:
+            self.playerdata = TAG.Compound(f)
     
     def write(self):
         """Write changes to file"""
@@ -23,7 +25,7 @@ class Player():
         with open(path, mode = 'w') as f:
             json.dump(self.stats, f)
         
-        self.playerdata.write()
+        dataPath = os.path.join(self.folder, 'playerdata', f'{self.uuid}.dat')
     
     
     
