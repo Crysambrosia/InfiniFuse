@@ -1,11 +1,12 @@
 from .dimension import Dimension
 from .mapmanager import MapManager
+from .playermanager import PlayerManager
 import os
 
 class World():
     """Interface for minecraft worlds"""
     
-    __slots__ = ['folder', 'dimensions', 'maps']
+    __slots__ = ['folder', 'dimensions', 'maps', 'players']
     
     def __init__(self, folder : str):
         
@@ -17,6 +18,7 @@ class World():
         self.dimensions['minecraft:the_end'] = Dimension(os.path.join(folder, 'DIM1','region'))
         self.dimensions['minecraft:the_nether'] = Dimension(os.path.join(folder, 'DIM-1', 'region'))
         self.maps = MapManager(folder = os.path.join(self.folder, 'data'))
+        self.players = PlayerManager(folder = self.folder)
     
     @classmethod
     def from_saves(cls, name : str):

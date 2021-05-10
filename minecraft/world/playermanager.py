@@ -3,29 +3,57 @@ import json
 import minecraft.TAG as TAG
 import os
 
-class Player():
-    """Handles accessing and modifying a player's data and stats"""
+class PlayerManager():
+    """Handles accessing and modifying player data and stats"""
     
-    def __init__(self, uuid : str, folder : str):
-        """UUID must be in the hyphenated-hexadecimal format"""
+    def __init__(self, folder : str):
         self.folder = folder
-        self.uuid = uuid
-        
-        statsPath = os.path.join(self.folder, 'stats', f'{self.uuid}.json')
-        with open(statsPath, mode = 'r') as f:
-            self.stats = json.load(f)
-        
-        dataPath = os.path.join(self.folder, 'playerdata', f'{self.uuid}.dat')
-        with DatFile(dataPath) as f:
-            self.playerdata = TAG.Compound(f)
     
-    def write(self):
-        """Write changes to file"""
-        statsPath = os.path.join(self.folder, 'stats', f'{self.uuid}.json')
-        with open(path, mode = 'w') as f:
-            json.dump(self.stats, f)
+    def __iter__(self):
+        """Return all players from this world
         
-        dataPath = os.path.join(self.folder, 'playerdata', f'{self.uuid}.dat')
+        Iterates through UUIDs found in the playerdata folder
+        """
+        
+        for name in os.listdir(os.path.join(self.folder, 'playerdata')):
+            basename = os.path.basename(name)
+            uuid, ext = os.path.splitext(basename)
+            if ext == '.dat':
+                yield self[uuid]
+            else:
+                continue
+    
+    def __getitem__(self, key):
+        """Return a player's data from a hyphenated-hexadecimal formatted UUID"""
+        
+        uuid = key
+        
+        dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+        with DatFile(dataPath) as f:
+            playerdata = TAG.Compound(f)
+        
+        statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
+        with open(statsPath, mode = 'r') as f:
+            stats = json.load(f)
+        
+        return {'playerdata' : playerdata, 'stats' : stats, 'uuid' : uuid}
+    
+    def  __setitem__(self, key, value):
+        """Write player data for given UUID in <key>
+        
+        Please provide data in the same format as __getitem__ returns
+        """
+        uuid = key
+        
+        if 'playerdata' in value:
+            dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+            with DatFile(dataPath) as f:
+                f.value = value['playerdata']
+        
+        if 'stats' in value:
+            statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
+            with open(statsPath, mode = 'w') as f:
+                json.dump(value['stats'], f)
     
     
     
