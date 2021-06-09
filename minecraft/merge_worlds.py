@@ -419,6 +419,36 @@ def fuse(base : str, other : str):
         
         a.dimensions[dimension].save_all()
     
+    for uuid, player in b.players.items():
+    
+        dimension = player['playerdata']['']['Dimension']
+        
+        if dimension == -1 or dimension == 'minecraft:the_nether':
+            xBlock = xBlockNether
+            zBlock = zBlockNether
+        if dimension == 0  or dimension == 'minecraft:overworld':
+            xBlock = xBlockOverworld
+            zBlock = zBlockOverworld
+        else:
+            # Other dimensions are not transferred, so players inside of them are discarded
+            continue
+        
+        player['playerdata']['']['Pos'][0] += xBlock
+        player['playerdata']['']['Pos'][2] += zBlock
+        
+        if 'SpawnX' in player['playerdata'][''] and 'SpawnZ' in player['playerdata']['']:
+            if (
+                'SpawnDimension' in player['playerdata']['']
+                and player['playerdata']['']['SpawnDimension'] == 'minecraft:the_nether'
+            ):
+                player['playerdata']['']['SpawnX'] += xBlockNether
+                player['playerdata']['']['SpawnZ'] += zBlockNether
+            else:
+                player['playerdata']['']['SpawnX'] += xBlockOverworld
+                player['playerdata']['']['SpawnZ'] += zBlockOverworld
+        
+        a.players[uuid] = player
+    
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
 def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
