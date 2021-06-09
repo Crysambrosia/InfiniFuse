@@ -346,6 +346,7 @@ def fuse(base : str, other : str):
     
     mapIdOffset = len(a.maps)
     
+    print(f'[{datetime.datetime.now()}] Transferring Maps...')
     for m in b.maps:
         
         mapDimension = m['']['data']['dimension']
@@ -390,36 +391,7 @@ def fuse(base : str, other : str):
         
         a.maps.append(m)
     
-    for dimension in b.dimensions:
-    
-        if dimension == 'minecraft:overworld':
-            xBlock = xBlockOverworld
-            zBlock = zBlockOverworld
-            xChunk = xChunkOverworld
-            zChunk = zChunkOverworld
-        elif dimension == 'minecraft:the_nether':
-            xBlock = xBlockNether
-            zBlock = zBlockNether
-            xChunk = xChunkNether
-            zChunk = zChunkNether
-        else:
-            # Transferring other dimensions is not supported
-            continue
-        
-        print(f'[{datetime.datetime.now()}] Transferring {dimension}...')
-        
-        for i, chunk in enumerate(b.dimensions[dimension]):
-            
-            move_chunk(chunk)
-            
-            if i % cacheSize == 0 and i != 0:
-                print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
-                a.dimensions[dimension].save_all()
-                print(f'[{datetime.datetime.now()}] Saved, processing more...')
-        
-        print(f'[{datetime.datetime.now()}] Saving the last {i} chunks...')
-        a.dimensions[dimension].save_all()
-    
+    print(f'[{datetime.datetime.now()}] Transferring Players...')
     for uuid, player in b.players.items():
     
         dimension = player['playerdata']['']['Dimension']
@@ -449,6 +421,36 @@ def fuse(base : str, other : str):
                 player['playerdata']['']['SpawnZ'] += zBlockOverworld
         
         a.players[uuid] = player
+    
+    for dimension in b.dimensions:
+    
+        if dimension == 'minecraft:overworld':
+            xBlock = xBlockOverworld
+            zBlock = zBlockOverworld
+            xChunk = xChunkOverworld
+            zChunk = zChunkOverworld
+        elif dimension == 'minecraft:the_nether':
+            xBlock = xBlockNether
+            zBlock = zBlockNether
+            xChunk = xChunkNether
+            zChunk = zChunkNether
+        else:
+            # Transferring other dimensions is not supported
+            continue
+        
+        print(f'[{datetime.datetime.now()}] Transferring {dimension}...')
+        
+        for i, chunk in enumerate(b.dimensions[dimension]):
+            
+            move_chunk(chunk)
+            
+            if i % cacheSize == 0 and i != 0:
+                print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
+                a.dimensions[dimension].save_all()
+                print(f'[{datetime.datetime.now()}] Saved, processing more...')
+        
+        print(f'[{datetime.datetime.now()}] Saving the last {i} chunks...')
+        a.dimensions[dimension].save_all()
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
