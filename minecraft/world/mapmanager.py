@@ -77,7 +77,7 @@ class MapManager():
                     })
                 })
                 
-            elif 'Dataversion' in f['']:
+            elif 'DataVersion' in f['']:
                 f['']['data']['map'] = value
                 
             else:
