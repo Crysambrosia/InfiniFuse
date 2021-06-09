@@ -107,19 +107,34 @@ class Base(ABC):
         self._value = newValue
 
     def __eq__(self, other):
-        return self.value.__eq__(self.valueType(other))
+        try:
+            return self.value.__eq__(self.valueType(other))
+        except ValueError:
+            return False
     
     def __ge__(self, other):
-        return self.value.__ge__(self.valueType(other))
+        try:
+            return self.value.__ge__(self.valueType(other))
+        except ValueError:
+            return False
     
     def __gt__(self, other):
-        return self.value.__gt__(self.valueType(other))
+        try:
+            return self.value.__gt__(self.valueType(other))
+        except ValueError:
+            return False
     
     def __le__(self, other):
-        return self.value.__le__(self.valueType(other))
+        try:
+            return self.value.__le__(self.valueType(other))
+        except ValueError:
+            return False
     
     def __lt__(self, other):
-        return self.value.__lt__(self.valueType(other))
+        try:
+            return self.value.__lt__(self.valueType(other))
+        except ValueError:
+            return False
     
     def __repr__(self):
         return self.to_snbt()
