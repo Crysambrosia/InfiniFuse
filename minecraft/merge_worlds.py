@@ -414,11 +414,14 @@ def fuse(base : str, other : str):
                 'SpawnDimension' in player['playerdata']['']
                 and player['playerdata']['']['SpawnDimension'] == 'minecraft:the_nether'
             ):
-                player['playerdata']['']['SpawnX'] += xBlockNether
-                player['playerdata']['']['SpawnZ'] += zBlockNether
+                xBlock = xBlockNether
+                zBlock = zBlockNether
             else:
-                player['playerdata']['']['SpawnX'] += xBlockOverworld
-                player['playerdata']['']['SpawnZ'] += zBlockOverworld
+                xBlock = xBlockOverworld
+                zBlock = zBlockOverworld
+        
+            player['playerdata']['']['SpawnX'] += xBlock
+            player['playerdata']['']['SpawnZ'] += zBlock
         
         a.players[uuid] = player
     
