@@ -1,30 +1,40 @@
+from collections.abc import MutableMapping
 from minecraft.datfile import DatFile
 import json
 import minecraft.TAG as TAG
 import os
 
-class PlayerManager():
+class PlayerManager(MutableMapping):
     """Handles accessing and modifying player data and stats"""
     
     def __init__(self, folder : str):
         self.folder = folder
     
-    def __iter__(self):
-        """Return all players from this world
+    def __delitem__(self, key):
+        """Delete a player from a hyphenated-hexadecimal UUID"""
+        uuid = key
         
-        Iterates through UUIDs found in the playerdata folder
-        """
+        dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+        if os.path.exists(dataPath):
+            os.remove(dataPath)
+        
+        statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
+        if os.path.exists(statsPath):
+            os.remove(statsPath)
+    
+    def __iter__(self):
+        """Return all contained player UUIDs"""
         
         for name in os.listdir(os.path.join(self.folder, 'playerdata')):
             basename = os.path.basename(name)
             uuid, ext = os.path.splitext(basename)
             if ext == '.dat':
-                yield self[uuid]
+                yield uuid
             else:
                 continue
     
     def __getitem__(self, key):
-        """Return a player's data from a hyphenated-hexadecimal formatted UUID"""
+        """Return a player's data from a hyphenated-hexadecimal UUID"""
         
         uuid = key
         
@@ -33,10 +43,25 @@ class PlayerManager():
             playerdata = TAG.Compound(f)
         
         statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
-        with open(statsPath, mode = 'r') as f:
-            stats = json.load(f)
+        if os.path.exists(statsPath):
+            with open(statsPath, mode = 'r') as f:
+                stats = json.load(f)
+        else:
+            stats = {}
         
         return {'playerdata' : playerdata, 'stats' : stats, 'uuid' : uuid}
+    
+    def __len__(self):
+        """How many players are contained"""
+        count = 0
+        
+        for name in os.listdir(os.path.join(self.folder, 'playerdata')):
+            basename = os.path.basename(name)
+            uuid, ext = os.path.splitext(basename)
+            if ext == '.dat':
+                count += 1
+        
+        return count
     
     def  __setitem__(self, key, value):
         """Write player data for given UUID in <key>
@@ -55,5 +80,10 @@ class PlayerManager():
             with open(statsPath, mode = 'w') as f:
                 json.dump(value['stats'], f)
     
-    
-    
+    def update_old_players(self):
+        """Update outdated player files to the latest format
+        
+        This is extremely tedious to program, as it requires a full LUT of IDs to names
+        and I can't be bothered to do all that BORING work right now.
+        """
+        pass
