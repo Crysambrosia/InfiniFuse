@@ -417,6 +417,7 @@ def fuse(base : str, other : str):
                 a.dimensions[dimension].save_all()
                 print(f'[{datetime.datetime.now()}] Saved, processing more...')
         
+        print(f'[{datetime.datetime.now()}] Saving the last {i} chunks...')
         a.dimensions[dimension].save_all()
     
     for uuid, player in b.players.items():
