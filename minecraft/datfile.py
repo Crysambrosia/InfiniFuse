@@ -31,7 +31,7 @@ class DatFile(TAG.MutableMapping):
 
     def __exit__(self, exc_type = None, exc_value = None, traceback = None):
         """Save value to disk"""
-        with open(self.path, mode = 'wb') as  f:
+        with open(self.path, mode = 'wb') as f:
             f.write(compress(data = self.to_bytes(), compression = self.compression))
 
     def __repr__(self):
