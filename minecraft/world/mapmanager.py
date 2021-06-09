@@ -27,8 +27,8 @@ class MapManager():
         """Set map number <key> to <value>"""
         key = self.convert_key(key = key)
         path = os.path.join(self.folder, f'map_{key}.dat')
-        f = DatFile(path = path, value = value)
-        f.write()
+        with DatFile(path) as f:
+            f.value = value
     
     def append(self, value):
         """Add a map to this world"""
