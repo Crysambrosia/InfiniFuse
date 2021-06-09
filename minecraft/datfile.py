@@ -10,7 +10,8 @@ class DatFile(TAG.MutableMapping):
     
     __slots__ = ['_value', 'compression', 'path']
 
-    def __init__(self, path : str):
+    def __init__(self, path : str, compression : int = None):
+        self.compression = compression
         self.path = path
 
     def __enter__(self):
@@ -19,13 +20,15 @@ class DatFile(TAG.MutableMapping):
         if os.path.exists(self.path):
         
             with open(self.path, mode = 'rb') as f:
-                data, self.compression = decompress(f.read())
+                data, compression = decompress(f.read())
             self.value = super().decode(data)
             
         else:
         
-            self.compression = 2
+            compression = 1
             self.value = {}
+        
+        self.compression = self.compression or compression
         
         return self
 
