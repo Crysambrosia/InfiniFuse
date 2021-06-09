@@ -365,31 +365,33 @@ def fuse(base : str, other : str):
                 mapDimension = 'unknown'
         
         if mapDimension == 'minecraft:overworld':
-            xMap = xBlockOverworld
-            zMap = zBlockOverworld
+            xBlock = xBlockOverworld
+            zBlock = zBlockOverworld
         elif mapDimension == 'minecraft:the_nether':
-            xMap = xBlockNether
-            zMap = zBlockNether
+            xBlock = xBlockNether
+            zBlock = zBlockNether
         else:
             continue
             # Other dimensions are not transferred, so we don't bother with their maps
         
-        m['']['data']['xCenter'] += xMap
-        m['']['data']['zCenter'] += zMap
+        m['']['data']['xCenter'] += xBlock
+        m['']['data']['zCenter'] += zBlock
 
         if 'banners' in m['']['data']:
             for i, banner in enumerate(m['']['data']['banners']):
-                banner['Pos']['X'] += xMap
-                banner['Pos']['Z'] += zMap
+                banner['Pos']['X'] += xBlock
+                banner['Pos']['Z'] += zBlock
                 m['']['data']['banners'][i] = banner
         
         if 'frames' in m['']['data']:
             for i, frame in enumerate(m['']['data']['frames']):
-                frame['Pos']['X'] += xMap
-                frame['Pos']['Z'] += zMap
+                frame['Pos']['X'] += xBlock
+                frame['Pos']['Z'] += zBlock
                 m['']['data']['frames'][i] = frame
         
         a.maps.append(m)
+    
+    return
     
     print(f'[{datetime.datetime.now()}] Transferring Players...')
     for uuid, player in b.players.items():
