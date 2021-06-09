@@ -448,12 +448,11 @@ def fuse(base : str, other : str):
             move_chunk(chunk)
             
             if i % cacheSize == 0 and i != 0:
-                print(f'[{datetime.datetime.now()}] Saving {cacheSize} chunks...')
                 a.dimensions[dimension].save_all()
-                print(f'[{datetime.datetime.now()}] Saved, processing more...')
+                print(f'[{datetime.datetime.now()}] Processed {i} chunks...')
         
-        print(f'[{datetime.datetime.now()}] Saving the last {i%cacheSize} chunks...')
         a.dimensions[dimension].save_all()
+        print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimension} !')
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
