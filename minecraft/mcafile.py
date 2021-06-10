@@ -42,11 +42,12 @@ class McaFile(collections.abc.Sequence, util.Cache):
     
     def __iter__(self):
         with concurrent.futures.ProcessPoolExecutor() as e:
-            for chunk in e.map(self.load_value, range(len(self))):
+            for chunk in e.map(self.load_value, range(self.maxLength)):
                 yield chunk
     
     def __len__(self):
-        return self.sideLength ** 2
+        """Total number of chunks that actually exist inside this file"""
+        return sum([i in self for i in range(self.maxLength)])
     
     def __repr__(self):
         try:
@@ -133,6 +134,11 @@ class McaFile(collections.abc.Sequence, util.Cache):
         
         return Chunk.from_bytes(decompress(data, compression)[0])
     
+    @property
+    def maxLength(self):
+        """Maximum chunk capacity of this file"""
+        return self.sideLength ** 2
+    
     def set_header(self, 
         key : int, 
         offset : int = None, 
@@ -162,8 +168,8 @@ class McaFile(collections.abc.Sequence, util.Cache):
             except:
                 raise TypeError(f'Indices must be int or sequence of 2 coords, not {type(key)}')
         
-        if key > len(self):
-            raise IndexError(f'Key must be 0-{len(self)}, not {key}')
+        if key > self.maxLength:
+            raise IndexError(f'Key must be 0-{self.maxLength}, not {key}')
         
         return key
    
@@ -212,7 +218,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
             # If this chunk didn't exist in this file, find smallest free offset to save it
             
             offsets = [0]
-            for i in range(len(self)):
+            for i in range(self.maxLength):
                 header = self.get_header(i)
                 if header is not None:
                     offsets.append(header['offset'] + header['sectorCount'])
@@ -235,7 +241,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         
         if sectorChange:
             # Change offsets for following chunks
-            for i in range(len(self)):
+            for i in range(self.maxLength):
             
                 header = self.get_header(i)
                 
