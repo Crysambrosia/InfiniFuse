@@ -346,7 +346,7 @@ def fuse(base : str, other : str):
     
     mapIdOffset = len(a.maps)
     
-    print(f'[{datetime.datetime.now()}] Transferring Maps...')
+    print(f'[{datetime.datetime.now()}] Transferring {len(b.maps)} Maps...')
     for m in b.maps:
         
         mapDimension = m['']['data']['dimension']
@@ -391,7 +391,7 @@ def fuse(base : str, other : str):
         
         a.maps.append(m)
     
-    print(f'[{datetime.datetime.now()}] Transferring Players...')
+    print(f'[{datetime.datetime.now()}] Transferring {len(b.players)} Players...')
     for uuid, player in b.players.items():
     
         dimension = player['playerdata']['']['Dimension']
@@ -441,7 +441,8 @@ def fuse(base : str, other : str):
             # Transferring other dimensions is not supported
             continue
         
-        print(f'[{datetime.datetime.now()}] Transferring {dimension}...')
+        chunkTotal = len(dimension)
+        print(f'[{datetime.datetime.now()}] Transferring {chunkTotal} chunks from {dimension}...')
         
         for i, chunk in enumerate(b.dimensions[dimension]):
             
@@ -449,7 +450,7 @@ def fuse(base : str, other : str):
             
             if i % cacheSize == 0 and i != 0:
                 a.dimensions[dimension].save_all()
-                print(f'[{datetime.datetime.now()}] Processed {i} chunks...')
+                print(f'[{datetime.datetime.now()}] Processed {i}/{chunkTotal} chunks...')
         
         a.dimensions[dimension].save_all()
         print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimension} !')
