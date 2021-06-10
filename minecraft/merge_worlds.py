@@ -323,7 +323,7 @@ def fuse(base : str, other : str):
                         
                         chunk['']['Level']['Structures']['Starts'][startKey] = start
     
-        a.dimensions[dimension][chunk.coords_chunk] = chunk
+        a.dimensions[dimensionName][chunk.coords_chunk] = chunk
     
     cacheSize = 2048
     # Number of chunks to be moved before clearing caches
@@ -425,14 +425,14 @@ def fuse(base : str, other : str):
         
         a.players[uuid] = player
     
-    for dimension in b.dimensions:
+    for dimensionName, dimension in b.dimensions.items():
     
-        if dimension == 'minecraft:overworld':
+        if dimensionName == 'minecraft:overworld':
             xBlock = xBlockOverworld
             zBlock = zBlockOverworld
             xChunk = xChunkOverworld
             zChunk = zChunkOverworld
-        elif dimension == 'minecraft:the_nether':
+        elif dimensionName == 'minecraft:the_nether':
             xBlock = xBlockNether
             zBlock = zBlockNether
             xChunk = xChunkNether
@@ -442,18 +442,18 @@ def fuse(base : str, other : str):
             continue
         
         chunkTotal = len(dimension)
-        print(f'[{datetime.datetime.now()}] Transferring {chunkTotal} chunks from {dimension}...')
+        print(f'[{datetime.datetime.now()}] Transferring {chunkTotal} chunks from {dimensionName}...')
         
-        for i, chunk in enumerate(b.dimensions[dimension]):
+        for i, chunk in enumerate(dimension):
             
             move_chunk(chunk)
             
-            if i % cacheSize == 0 and i != 0:
-                a.dimensions[dimension].save_all()
+            if i % cacheSize == 0 and i > 0:
+                a.dimensions[dimensionName].save_all()
                 print(f'[{datetime.datetime.now()}] Processed {i}/{chunkTotal} chunks...')
         
         a.dimensions[dimension].save_all()
-        print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimension} !')
+        print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimensionName} !')
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
