@@ -452,7 +452,7 @@ def fuse(base : str, other : str):
                 a.dimensions[dimensionName].save_all()
                 print(f'[{datetime.datetime.now()}] Processed {i}/{chunkTotal} chunks...')
         
-        a.dimensions[dimension].save_all()
+        a.dimensions[dimensionName].save_all()
         print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimensionName} !')
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
