@@ -45,11 +45,14 @@ class Dimension(util.Cache):
     
     def __iter__(self):
         """A generator that extracts every existing chunk from this dimension"""
-        for fileName in os.listdir(self.folder):
-            if os.path.splitext(fileName)[1] == '.mca':
-                for chunk in McaFile.open(os.path.join(self.folder, fileName)):
-                    if chunk is not None:
-                        yield chunk
+        for f in self.files():
+            for chunk in f:
+                if chunk is not None:
+                    yield chunk
+    
+    def __len__(self):
+        """Number of chunks contained in this dimension"""
+        return sum([len(f) for f in self.files()])
     
     def __setitem__(self, key, value):
         
@@ -68,10 +71,8 @@ class Dimension(util.Cache):
     def binary_map(self):
         """Return a dict of the binary maps of all contained McaFiles, indexed by region coords"""
         binMap = {}
-        for fileName in os.listdir(self.folder):
-            if os.path.splitext(fileName)[1] == '.mca':
-                f = McaFile.open(path = os.path.join(self.folder, fileName))
-                binMap[f.coords_region] = f.binary_map()
+        for f in self.files():
+            binMap[f.coords_region] = f.binary_map()
         return binMap
     
     def convert_key(self, key):
@@ -84,6 +85,12 @@ class Dimension(util.Cache):
         if not isinstance(value, McaFile):
             raise TypeError(f'Value must be McaFile, not {value}')
         return value
+    
+    def files(self):
+        """Generate a list of contained region files"""
+        for f in os.listdir(self.folder):
+            if os.path.splitext(f)[1] == '.mca':
+                yield McaFile.open(os.path.join(self.folder, f))
     
     def load_value(self, key):
         """Return McaFile at coords in key"""
