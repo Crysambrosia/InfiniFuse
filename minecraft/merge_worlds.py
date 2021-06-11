@@ -14,7 +14,7 @@ import util
 datefmt = '%Y %b %d %H:%M:%S'
 
 logging.basicConfig(
-    format='%(asctime) %(levelname) %(message)',
+    format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt=datefmt
 )
@@ -212,6 +212,7 @@ def fuse(base : str, other : str, offset : tuple = None):
     
     def move_chunk(chunk):
         """Move chunk from b to a"""
+        
         chunk['']['Level']['xPos'] += xChunk
         chunk['']['Level']['zPos'] += zChunk
         
@@ -439,6 +440,7 @@ def fuse(base : str, other : str, offset : tuple = None):
         
         startTime = time.perf_counter()
         for i, chunk in enumerate(dimension):
+        
             move_chunk(chunk)
             
             if i % cacheSize == 0 and i > 0:
@@ -456,12 +458,21 @@ def fuse(base : str, other : str, offset : tuple = None):
     
     logging.info(f'Transfer done !')
 
-def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
+def fusion_map(
+    base : str, 
+    other : str, 
+    dimension : str = 'minecraft:overworld', 
+    offset : tuple = None
+):
     """Create a PNG idea of how two maps are going to be fused"""
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    xOffset, zOffset = find_offsets(a, b)
+    if offset is None:
+        xOffset, zOffset = find_offsets(a, b)
+    else:
+        xOffset, zOffset = offset
+    
     if dimension == 'minecraft:overworld':
         xOffset *= 8
         zOffset *= 8
@@ -540,7 +551,7 @@ def map_and_boundaries(dimension : Dimension):
         z.append(zRegion)
     
     xMax = (max(x) + 1) * McaFile.sideLength
-    xMin = min(z) * McaFile.sideLength
+    xMin = min(x) * McaFile.sideLength
     zMax = (max(z) + 1) * McaFile.sideLength
     zMin = min(z) * McaFile.sideLength
     
