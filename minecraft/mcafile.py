@@ -10,17 +10,20 @@ import util
 class McaFile(collections.abc.Sequence, util.Cache):
     """Interface for .mca files"""
     
-    __slots__ = ['_cache', '_path', 'value']
+    __slots__ = ['_cache', '_path', 'protected', 'value']
     sectorLength = 4096
     sideLength = 32
     
-    def __init__(self, path : str = None, value : bytearray = None):
+    def __init__(self, path : str = None, protected : bool = True, value : bytearray = None):
         
         self._cache = {}
         """Cache containing loaded chunks"""
         
         self.path = path
         """Path of file for IO"""
+        
+        self.protected = protected
+        """Whether to allow chunk overwrites"""
         
         self.value = value
         """bytearray containing this file's data"""
@@ -187,9 +190,9 @@ class McaFile(collections.abc.Sequence, util.Cache):
             self.value = bytearray(self.sectorLength*2)
     
     @classmethod
-    def open(cls, path : str):
+    def open(cls, path : str, protected : bool = True):
         """Open from direct file path"""
-        f = cls(path = path)
+        f = cls(path = path, protected = protected)
         f.read()
         return f
     
@@ -230,6 +233,10 @@ class McaFile(collections.abc.Sequence, util.Cache):
             offset = header['offset']
             oldSectorCount = header['sectorCount']
         
+        if self.protected:
+            if oldSectorCount != 0:
+                raise IOError(f'Cannot overwrite chunks in protected mode !\n {self.path} {key} {value}')
+        
         # Prepare data
         compression = 2
         data = compress(value.to_bytes(), compression)
@@ -239,7 +246,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         newSectorCount = math.ceil((length + 4) / self.sectorLength)
         sectorChange = newSectorCount - oldSectorCount
         
-        if sectorChange:
+        if sectorChange > 0:
             # Change offsets for following chunks
             for i in range(self.maxLength):
             
