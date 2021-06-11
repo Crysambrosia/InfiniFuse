@@ -19,22 +19,20 @@ logging.basicConfig(
     datefmt=datefmt
 )
 
-def find_offsets(a : World, b : World):
-    """Find offsets with no conflicts to fuse the Overworld and Nether of <a> and <b>"""
+def find_offsets(destination : World, source : World):
+    """Find offsets with no conflicts to fuse the Overworld and Nether of <destination> and <source>"""
     
-    logging.info('Making binary map of base overworld...')
-    aOverworld = map_and_boundaries(a.dimensions['minecraft:overworld'])
+    logging.info('Mapping destination overworld...')
+    destinationOverworld = map_and_boundaries(destination.dimensions['minecraft:overworld'])
     
-    logging.info(f'Making binary map of base nether...')
-    aNether    = map_and_boundaries(a.dimensions['minecraft:the_nether'])
-    # Binary maps of <a>'s overworld and nether
+    logging.info('Mapping destination nether...')
+    destinationNether = map_and_boundaries(destination.dimensions['minecraft:the_nether'])
     
-    logging.info(f'Making binary map of other overworld...')
-    bOverworld = map_and_boundaries(b.dimensions['minecraft:overworld'])
+    logging.info('Mapping source overworld...')
+    graftOverworld = map_and_boundaries(source.dimensions['minecraft:overworld'])
     
-    logging.info(f'Making binary map of other nether...')
-    bNether    = map_and_boundaries(b.dimensions['minecraft:the_nether'])
-    # Binary maps of <b>'s overworld and nether
+    logging.info('Mapping source nether...')
+    graftNether = map_and_boundaries(source.dimensions['minecraft:the_nether'])
     
     logging.info(f'Trying offsets...')
     for netherOffset in generate_offsets():
@@ -44,20 +42,28 @@ def find_offsets(a : World, b : World):
         # Thus, there is a very high chance a given nether offset will work for the overworld too
         # And it will be up to 8 times quicker to find !
         
-        if not offset_conflicts(a = aNether, b = bNether, offset = netherOffset):
+        if not offset_conflicts(
+            destination = destinationNether, 
+            source = graftNether, 
+            offset = netherOffset
+        ):
             overworldOffset = tuple([i*8 for i in netherOffset])
-            if not offset_conflicts(a = aOverworld, b = bOverworld, offset = overworldOffset):
+            if not offset_conflicts(
+                destination = destinationOverworld, 
+                source = graftOverworld, 
+                offset = overworldOffset
+            ):
             
-                logging.info(f'Found offset : {netherOffset} for the Nether, {overworldOffset} for the overworld !')
+                logging.info(f'Found {netherOffset} Nether, {overworldOffset} Overworld.')
                 return netherOffset
 
-def fuse(base : str, other : str, offset : tuple = None):
-    """Fuse two maps into one. Takes a REALLY long time !
-    Offset for <other> will be found automatically if <offset> is None
+def fuse(destination : str, source : str, offset : tuple = None):
+    """Fuse <source> into <destination>. Takes a REALLY long time !
+    Offset for <source> will be found automatically if <offset> is None
     
-    <base>  : Name in .minecraft/saves of the map into which to fuse <other>
-    <other> : Name in .minecraft/saves of the map to fuse into <base>
-    <offset>: Tuple of two ints (xNether, zNether) representing the NETHER chunk offset of <other>. The overworld will be moved 8x as far to keep the portals connected
+    <destination>  : Name in .minecraft/saves of the map into which to fuse <source>
+    <source> : Name in .minecraft/saves of the map to fuse into <destination>
+    <offset>: Tuple of two ints (xNether, zNether) representing the NETHER chunk offset of <source>. The overworld will be moved 8x as far to keep the portals connected
     """
     
     # These make more sense as their own functions,
@@ -163,7 +169,7 @@ def fuse(base : str, other : str, offset : tuple = None):
         if 'Decorations' in item['tag']:
         
             mapId = item['tag']['map']
-            mapDimension = b.maps[mapId]['']['data']['dimension']
+            mapDimension = source.maps[mapId]['']['data']['dimension']
             
             if isinstance(mapDimension, TAG.Byte):
                 if mapDimension == 0:
@@ -211,7 +217,7 @@ def fuse(base : str, other : str, offset : tuple = None):
         return tile
     
     def move_chunk(chunk):
-        """Move chunk from b to a"""
+        """Move chunk from source to destination"""
         
         chunk['']['Level']['xPos'] += xChunk
         chunk['']['Level']['zPos'] += zChunk
@@ -314,16 +320,16 @@ def fuse(base : str, other : str, offset : tuple = None):
                         
                         chunk['']['Level']['Structures']['Starts'][startKey] = start
     
-        a.dimensions[dimensionName][chunk.coords_chunk] = chunk
+        destination.dimensions[dimensionName][chunk.coords_chunk] = chunk
     
     cacheSize = 2048
     # Number of chunks to be moved before clearing caches
     
-    a = World.from_saves(base)
-    b = World.from_saves(other)
+    destination = World.from_saves(destination)
+    source = World.from_saves(source)
     
     if offset is None:
-        xChunkNether, zChunkNether = find_offsets(a, b)
+        xChunkNether, zChunkNether = find_offsets(destination, source)
     else:
         xChunkNether, zChunkNether = offset
     
@@ -338,10 +344,10 @@ def fuse(base : str, other : str, offset : tuple = None):
     
     cacheSize = 2048
     
-    mapIdOffset = len(a.maps)
+    mapIdOffset = len(destination.maps)
     
-    logging.info(f'Transferring {len(b.maps)} Maps...')
-    for m in b.maps:
+    logging.info(f'Transferring {len(source.maps)} Maps...')
+    for m in source.maps:
         
         mapDimension = m['']['data']['dimension']
         
@@ -383,10 +389,10 @@ def fuse(base : str, other : str, offset : tuple = None):
                 frame['Pos']['Z'] += zBlock
                 m['']['data']['frames'][i] = frame
         
-        a.maps.append(m)
+        destination.maps.append(m)
     
-    logging.info(f'Transferring {len(b.players)} Players...')
-    for uuid, player in b.players.items():
+    logging.info(f'Transferring {len(source.players)} Players...')
+    for uuid, player in source.players.items():
     
         dimension = player['playerdata']['']['Dimension']
         
@@ -417,9 +423,9 @@ def fuse(base : str, other : str, offset : tuple = None):
             player['playerdata']['']['SpawnX'] += xBlock
             player['playerdata']['']['SpawnZ'] += zBlock
         
-        a.players[uuid] = player
+        destination.players[uuid] = player
     
-    for dimensionName, dimension in b.dimensions.items():
+    for dimensionName, dimension in source.dimensions.items():
     
         if dimensionName == 'minecraft:overworld':
             xBlock = xBlockOverworld
@@ -443,33 +449,35 @@ def fuse(base : str, other : str, offset : tuple = None):
         
             move_chunk(chunk)
             
-            if i % cacheSize == 0 and i > 0:
-                a.dimensions[dimensionName].save_all()
+            if (i + 1) % cacheSize == 0:
+                destination.dimensions[dimensionName].save_all()
                 
                 elapsedTime = time.perf_counter() - startTime
-                completionEpoch = time.time() + ((elapsedTime / i+1) * (chunkTotal - i+1))
+                completionEpoch = time.time() + ((elapsedTime / (i+1)) * (chunkTotal - (i+1)))
                 completionTime = time.strftime(datefmt, time.localtime(completionEpoch))
                 
-                logging.info(f'{i}/{chunkTotal} - {(i+1/chunkTotal)*100:.2f}% - ETC : {completionTime}')
+                completion = (i+1) / chunkTotal
+                
+                logging.info(f'{i}/{chunkTotal} - {completionPercentage:6.2%} - ETC : {completionTime}')
             
-            if i+1 == chunkTotal:
-                a.dimensions[dimensionName].save_all()
+            if i + 1 == chunkTotal:
+                destination.dimensions[dimensionName].save_all()
                 logging.info(f'Finished transferring {i+1} chunks for {dimensionName} !')
     
     logging.info(f'Transfer done !')
 
 def fusion_map(
-    base : str, 
-    other : str, 
+    destination : str, 
+    source : str, 
     dimension : str = 'minecraft:overworld', 
     offset : tuple = None
 ):
     """Create a PNG idea of how two maps are going to be fused"""
-    a = World.from_saves(base)
-    b = World.from_saves(other)
+    destination = World.from_saves(destination)
+    source = World.from_saves(source)
     
     if offset is None:
-        xOffset, zOffset = find_offsets(a, b)
+        xOffset, zOffset = find_offsets(destination, source)
     else:
         xOffset, zOffset = offset
     
@@ -477,8 +485,8 @@ def fusion_map(
         xOffset *= 8
         zOffset *= 8
     
-    aMap, *_ = map_and_boundaries(a.dimensions[dimension])
-    bMap, *_ = map_and_boundaries(b.dimensions[dimension])
+    aMap, *_ = map_and_boundaries(destination.dimensions[dimension])
+    bMap, *_ = map_and_boundaries(source.dimensions[dimension])
     
     sideLen = McaFile.sideLength
     
@@ -557,20 +565,20 @@ def map_and_boundaries(dimension : Dimension):
     
     return binaryMap, xMax, xMin, zMax, zMin
 
-def offset_conflicts(a, b, offset):
-    """Check for conflicts if <b> was fused into <a> at <offset>"""
+def offset_conflicts(destination, source, offset):
+    """Check for conflicts if <source> was fused into <destination> at <offset>"""
     
     # These variables are not stored in dicts on purpose !
     # Dict access somehow halves performance
     
-    if a is None or b is None:
+    if destination is None or source is None:
         return False
     
-    aMap, aXmax, aXmin, aZmax, aZmin = a
-    # Data from map_and_boundaries for a
+    aMap, aXmax, aXmin, aZmax, aZmin = destination
+    # Data from map_and_boundaries for destination
     
-    bMap, bXmax, bXmin, bZmax, bZmin = b
-    # Data from map_and_boundaries for b
+    bMap, bXmax, bXmin, bZmax, bZmin = source
+    # Data from map_and_boundaries for source
     
     xOffset, zOffset = offset
     # Offset coordinates
