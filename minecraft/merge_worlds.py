@@ -2,60 +2,41 @@ from .mcafile import McaFile
 from .world import World
 from .world.dimension import Dimension
 import concurrent.futures
-import datetime
 import itertools
+import logging
 import minecraft.TAG as TAG
 import os
 import random
 import struct
+import time
 import util
 
-# Find offset for map
-# Offset all chunks
-# Change map IDs
-# Offset map items
-# Offset players
-# Combine player stats
-# Do something with player inventory ?
+datefmt = '%Y %b %d %H:%M:%S'
 
-def map_and_boundaries(dimension : Dimension):
-    """Return binary map and boundaries of <dimension>"""
-    
-    binaryMap = dimension.binary_map()
-    if binaryMap == {}:
-        return None
-    
-    x = []
-    z = []
-    for xRegion, zRegion in binaryMap:
-        x.append(xRegion)
-        z.append(zRegion)
-    
-    xMax = (max(x) + 1) * McaFile.sideLength
-    xMin = min(z) * McaFile.sideLength
-    zMax = (max(z) + 1) * McaFile.sideLength
-    zMin = min(z) * McaFile.sideLength
-    
-    return binaryMap, xMax, xMin, zMax, zMin
+logging.basicConfig(
+    format='%(asctime)s %(levelname)s %(message)s',
+    level=logging.INFO,
+    datefmt=datefmt
+)
 
 def find_offsets(a : World, b : World):
     """Find offsets with no conflicts to fuse the Overworld and Nether of <a> and <b>"""
     
-    print(f'[{datetime.datetime.now()}] Making binary map of base overworld...')
+    logging.info('Making binary map of base overworld...')
     aOverworld = map_and_boundaries(a.dimensions['minecraft:overworld'])
     
-    print(f'[{datetime.datetime.now()}] Making binary map of base nether...')
+    logging.info(f'Making binary map of base nether...')
     aNether    = map_and_boundaries(a.dimensions['minecraft:the_nether'])
     # Binary maps of <a>'s overworld and nether
     
-    print(f'[{datetime.datetime.now()}] Making binary map of other overworld...')
+    logging.info(f'Making binary map of other overworld...')
     bOverworld = map_and_boundaries(b.dimensions['minecraft:overworld'])
     
-    print(f'[{datetime.datetime.now()}] Making binary map of other nether...')
+    logging.info(f'Making binary map of other nether...')
     bNether    = map_and_boundaries(b.dimensions['minecraft:the_nether'])
     # Binary maps of <b>'s overworld and nether
     
-    print(f'[{datetime.datetime.now()}] Trying offsets...')
+    logging.info(f'Trying offsets...')
     for netherOffset in generate_offsets():
         
         # Finding offset for the nether first makes the process faster
@@ -67,7 +48,7 @@ def find_offsets(a : World, b : World):
             overworldOffset = tuple([i*8 for i in netherOffset])
             if not offset_conflicts(a = aOverworld, b = bOverworld, offset = overworldOffset):
             
-                print(f'[{datetime.datetime.now()}] Found offset : {netherOffset} for the Nether, {overworldOffset} for the overworld !')
+                logging.info(f'Found offset : {netherOffset} for the Nether, {overworldOffset} for the overworld !')
                 return netherOffset
 
 def fuse(base : str, other : str, offset : tuple = None):
@@ -274,7 +255,7 @@ def fuse(base : str, other : str, offset : tuple = None):
                                 coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
                                 coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
                             except struct.error as e:
-                                print(x, z, coords)
+                                logging.info(x, z, coords)
                                 raise e
                             
                             reference[i] = coords
@@ -358,7 +339,7 @@ def fuse(base : str, other : str, offset : tuple = None):
     
     mapIdOffset = len(a.maps)
     
-    print(f'[{datetime.datetime.now()}] Transferring {len(b.maps)} Maps...')
+    logging.info(f'Transferring {len(b.maps)} Maps...')
     for m in b.maps:
         
         mapDimension = m['']['data']['dimension']
@@ -403,7 +384,7 @@ def fuse(base : str, other : str, offset : tuple = None):
         
         a.maps.append(m)
     
-    print(f'[{datetime.datetime.now()}] Transferring {len(b.players)} Players...')
+    logging.info(f'Transferring {len(b.players)} Players...')
     for uuid, player in b.players.items():
     
         dimension = player['playerdata']['']['Dimension']
@@ -454,21 +435,26 @@ def fuse(base : str, other : str, offset : tuple = None):
             continue
         
         chunkTotal = len(dimension)
-        print(f'[{datetime.datetime.now()}] Transferring {chunkTotal} chunks from {dimensionName}...')
+        logging.info(f'Transferring {chunkTotal} chunks from {dimensionName}...')
         
+        startTime = time.perf_counter()
         for i, chunk in enumerate(dimension):
-            
             move_chunk(chunk)
             
             if i % cacheSize == 0 and i > 0:
                 a.dimensions[dimensionName].save_all()
-                print(f'[{datetime.datetime.now()}] {i}/{chunkTotal} - {(i/chunkTotal)*100:.2f}%')
+                
+                elapsedTime = time.perf_counter() - startTime
+                completionEpoch = time.time() + ((elapsedTime / i+1) * (chunkTotal - i+1))
+                completionTime = time.strftime(datefmt, time.localtime(completionEpoch))
+                
+                logging.info(f'{i}/{chunkTotal} - {(i+1/chunkTotal)*100:.2f}% - ETC : {completionTime}')
             
             if i+1 == chunkTotal:
                 a.dimensions[dimensionName].save_all()
-                print(f'[{datetime.datetime.now()}] Finished transferring {i+1} chunks for {dimensionName} !')
+                logging.info(f'Finished transferring {i+1} chunks for {dimensionName} !')
     
-    print(f'[{datetime.datetime.now()}] Transfer done !')
+    logging.info(f'Transfer done !')
 
 def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     """Create a PNG idea of how two maps are going to be fused"""
@@ -505,7 +491,7 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
         x.append(xRegion)
         z.append(zRegion)
     
-    print(f'[{datetime.datetime.now()}] Preparing PNG data...')
+    logging.info(f'Preparing PNG data...')
     data = b""
     for zRegion in range(min(z), max(z) + 1):
         for zChunk in range(sideLen):
@@ -521,11 +507,11 @@ def fusion_map(base : str, other : str, dimension = 'minecraft:overworld'):
     height = (max(z) - min(z) + 1) * sideLen
     width  = (max(x) - min(x) + 1) * sideLen
     
-    print(f'[{datetime.datetime.now()}] Writing PNG...')
+    logging.info(f'Writing PNG...')
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
         f.write(util.makePNG(data = data, height = height, width = width))
     
-    print(f'[{datetime.datetime.now()}] Done !')
+    logging.info(f'Done !')
   
 def generate_offsets(maxRadius : int = 3_750_000):
     """Generate x and z coordinates in concentric squares around the origin"""
@@ -539,6 +525,26 @@ def generate_offsets(maxRadius : int = 3_750_000):
             # Sides of the square
                 yield x, -radius
                 yield x,  radius
+
+def map_and_boundaries(dimension : Dimension):
+    """Return binary map and boundaries of <dimension>"""
+    
+    binaryMap = dimension.binary_map()
+    if binaryMap == {}:
+        return None
+    
+    x = []
+    z = []
+    for xRegion, zRegion in binaryMap:
+        x.append(xRegion)
+        z.append(zRegion)
+    
+    xMax = (max(x) + 1) * McaFile.sideLength
+    xMin = min(z) * McaFile.sideLength
+    zMax = (max(z) + 1) * McaFile.sideLength
+    zMin = min(z) * McaFile.sideLength
+    
+    return binaryMap, xMax, xMin, zMax, zMin
 
 def offset_conflicts(a, b, offset):
     """Check for conflicts if <b> was fused into <a> at <offset>"""
