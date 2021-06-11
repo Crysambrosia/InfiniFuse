@@ -458,7 +458,7 @@ def fuse(destination : str, source : str, offset : tuple = None):
                 
                 completion = (i+1) / chunkTotal
                 
-                logging.info(f'{i}/{chunkTotal} - {completion:6.2%} - ETC : {completionTime}')
+                logging.info(f'{i+1}/{chunkTotal} - {completion:6.2%} - ETC : {completionTime}')
             
             if i + 1 == chunkTotal:
                 destination.dimensions[dimensionName].save_all()
