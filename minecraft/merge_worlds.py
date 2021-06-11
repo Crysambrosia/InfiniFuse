@@ -14,7 +14,7 @@ import util
 datefmt = '%Y %b %d %H:%M:%S'
 
 logging.basicConfig(
-    format='%(asctime)s %(levelname)s %(message)s',
+    format='%(asctime) %(levelname) %(message)',
     level=logging.INFO,
     datefmt=datefmt
 )
