@@ -20,11 +20,14 @@ import util
 
 def map_and_boundaries(dimension : Dimension):
     """Return binary map and boundaries of <dimension>"""
+    
+    binaryMap = dimension.binary_map()
+    if binaryMap == {}:
+        return None
+    
     x = []
     z = []
-    
-    binMap = dimension.binary_map()
-    for xRegion, zRegion in binMap:
+    for xRegion, zRegion in binaryMap:
         x.append(xRegion)
         z.append(zRegion)
     
@@ -33,7 +36,7 @@ def map_and_boundaries(dimension : Dimension):
     zMax = (max(z) + 1) * McaFile.sideLength
     zMin = min(z) * McaFile.sideLength
     
-    return binMap, xMax, xMin, zMax, zMin
+    return binaryMap, xMax, xMin, zMax, zMin
 
 def find_offsets(a : World, b : World):
     """Find offsets with no conflicts to fuse the Overworld and Nether of <a> and <b>"""
@@ -67,8 +70,14 @@ def find_offsets(a : World, b : World):
                 print(f'[{datetime.datetime.now()}] Found offset : {netherOffset} for the Nether, {overworldOffset} for the overworld !')
                 return netherOffset
 
-def fuse(base : str, other : str):
-    """Fuse two maps into one. Takes a REALLY long time ! (Could be days)"""
+def fuse(base : str, other : str, offset : tuple = None):
+    """Fuse two maps into one. Takes a REALLY long time !
+    Offset for <other> will be found automatically if <offset> is None
+    
+    <base>  : Name in .minecraft/saves of the map into which to fuse <other>
+    <other> : Name in .minecraft/saves of the map to fuse into <base>
+    <offset>: Tuple of two ints (xNether, zNether) representing the NETHER chunk offset of <other>. The overworld will be moved 8x as far to keep the portals connected
+    """
     
     # These make more sense as their own functions,
     # but also access to way too many variables defined here
@@ -331,7 +340,10 @@ def fuse(base : str, other : str):
     a = World.from_saves(base)
     b = World.from_saves(other)
     
-    xChunkNether, zChunkNether = find_offsets(a, b)
+    if offset is None:
+        xChunkNether, zChunkNether = find_offsets(a, b)
+    else:
+        xChunkNether, zChunkNether = offset
     
     xBlockNether = xChunkNether * 16
     zBlockNether = zChunkNether * 16
@@ -450,10 +462,11 @@ def fuse(base : str, other : str):
             
             if i % cacheSize == 0 and i > 0:
                 a.dimensions[dimensionName].save_all()
-                print(f'[{datetime.datetime.now()}] Processed {i}/{chunkTotal} chunks...')
-        
-        a.dimensions[dimensionName].save_all()
-        print(f'[{datetime.datetime.now()}] Finished transferring {i} chunks for {dimensionName} !')
+                print(f'[{datetime.datetime.now()}] {i}/{chunkTotal} - {(i/chunkTotal)*100:.2f}%')
+            
+            if i+1 == chunkTotal:
+                a.dimensions[dimensionName].save_all()
+                print(f'[{datetime.datetime.now()}] Finished transferring {i+1} chunks for {dimensionName} !')
     
     print(f'[{datetime.datetime.now()}] Transfer done !')
 
@@ -532,6 +545,9 @@ def offset_conflicts(a, b, offset):
     
     # These variables are not stored in dicts on purpose !
     # Dict access somehow halves performance
+    
+    if a is None or b is None:
+        return False
     
     aMap, aXmax, aXmin, aZmax, aZmin = a
     # Data from map_and_boundaries for a
