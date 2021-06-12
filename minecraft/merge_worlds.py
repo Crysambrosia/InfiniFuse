@@ -488,6 +488,12 @@ def fusion_map(
     aMap, *_ = map_and_boundaries(destination.dimensions[dimension])
     bMap, *_ = map_and_boundaries(source.dimensions[dimension])
     
+    if len(source.dimensions[dimension]) > len(destination.dimensions[dimension]):
+        # Invert maps and offsets if source is bigger than destination
+        aMap, bMap = bMap, aMap
+        xOffset *= -1
+        zOffset *= -1
+    
     sideLen = McaFile.sideLength
     
     fuseMap = aMap
