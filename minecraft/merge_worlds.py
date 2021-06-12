@@ -531,19 +531,55 @@ def fusion_map(
         f.write(util.makePNG(data = data, height = height, width = width))
     
     logging.info(f'Done !')
-  
-def generate_offsets(maxRadius : int = 3_750_000):
-    """Generate x and z coordinates in concentric squares around the origin"""
-    for radius in range(maxRadius):
-        for x in range(-radius, radius + 1):
-            if abs(x) == abs(radius):
-            # Top and bottom of the square
-                for z in range(-radius, radius + 1):    
-                    yield x, z
+
+def generate_offsets(minRadius : int = 0, maxRadius : int = 3_750_000):
+    """Generate x and z coordinates in concentric circles around the origin
+    Uses Bresenham's Circle Drawing Algorithm
+    """
+    def yield_points(x, y):
+        
+            yield x, y
+            yield x, -y
+            yield -x, -y
+            yield -x, y
+            
+            if x != y:
+                yield y, x
+                yield y, -x
+                yield -y, -x
+                yield -y, x
+    
+    def yield_circle(radius, previousCircle):
+        x = 0
+        y = radius
+        d = 3 - (2 * radius)
+        while x < y:
+        
+            for point in yield_points(x, y):
+                if point not in previousCircle:
+                    yield point
+            
+            if d < 0:
+                d += (4 * x) + 6
             else:
-            # Sides of the square
-                yield x, -radius
-                yield x,  radius
+                d += (4 * (x-y)) + 10
+                for point in itertools.chain(yield_points(x + 1, y), yield_points(x, y - 1)):
+                    if point not in previousCircle:
+                        yield point
+                y -= 1
+            
+            x += 1
+    
+    previousCircle = [(0,0)]
+    for radius in range(minRadius, maxRadius):
+    
+        circle = set()
+        for point in yield_circle(radius, previousCircle):
+            if point not in circle:
+                yield point
+                circle.add(point)
+        
+        previousCircle = circle
 
 def map_and_boundaries(dimension : Dimension):
     """Return binary map and boundaries of <dimension>"""
