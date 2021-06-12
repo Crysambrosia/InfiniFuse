@@ -637,6 +637,11 @@ def offset_conflicts(destination, source, offset):
     newZmax = bZmax + zOffset
     newZmin = bZmin + zOffset
     
+    for i in [newXmax, newXmin, newZmax, newZmin]:
+        if i * 16 not in range(-Dimension.sideLength, Dimension.sideLength)
+            return True
+    # Cannot paste source outside of world border
+    
     overlapXmax = min(max(newXmax, aXmin), aXmax)
     overlapXmin = min(max(newXmin, aXmin), aXmax)
     overlapZmax = min(max(newZmax, aZmin), aZmax)
