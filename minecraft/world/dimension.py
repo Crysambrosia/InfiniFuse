@@ -7,6 +7,13 @@ import util
 class Dimension(util.Cache):
     """A dimension of a minecraft world"""
     
+    __slots__ : ['_cache', 'folder']
+    
+    sideLength = 60_002_304
+    """Maximum side length of a dimension in blocks
+    Defined so that range(-sideLength, sideLength) includes every legal block coordinate
+    """
+    
     def __init__(self, folder : str):
     
         self.folder = folder
