@@ -470,9 +470,18 @@ def fusion_map(
     destination : str, 
     source : str, 
     dimension : str = 'minecraft:overworld', 
-    offset : tuple = None
+    offset : tuple = None,
+    size : int = 256
 ):
-    """Create a PNG idea of how two maps are going to be fused"""
+    """Create a PNG idea of how two maps are going to be fused, each pixel being a chunk.
+    Any overlap will be white, blank pixels are black, and occupied chunks are grey
+    
+    <source> is the map to be moved into <destination>
+    <destination> is the map receiving <source>
+    <dimension> is the string ID of a dimension, either minecraft:the_nether or minecraft:overworld
+    <offset> is the pasting offset, an optimal offset will be found if unspecified
+    <size> the image will be the closest multiple of 32 pixels to this number in both dimensions
+    """
     destination = World.from_saves(destination)
     source = World.from_saves(source)
     
@@ -496,6 +505,8 @@ def fusion_map(
     
     sideLen = McaFile.sideLength
     
+    logging.info(f'Combining maps...')
+    
     fuseMap = aMap
     for coords, region in bMap.items():
         xRegion, zRegion = coords
@@ -516,12 +527,19 @@ def fusion_map(
         x.append(xRegion)
         z.append(zRegion)
     
+    # Clamp borders at size if necessary
+    limit = int(size / 64)
+    maxX  = min( limit, max(x))   
+    minX  = max(-limit, min(x))
+    maxZ  = min( limit, max(z))
+    minZ  = max(-limit, min(z))
+    
     logging.info(f'Preparing PNG data...')
     data = b""
-    for zRegion in range(min(z), max(z) + 1):
+    for zRegion in range(minZ, maxZ + 1):
         for zChunk in range(sideLen):
             data += b"\0" # no filter for this scanline
-            for xRegion in range(min(x), max(x) + 1):
+            for xRegion in range(minX, maxX + 1):
                 if (xRegion, zRegion) in fuseMap:
                     for xChunk in range(sideLen):
                         data += (fuseMap[xRegion, zRegion][xChunk][zChunk] * 127).to_bytes(1, 'big')
@@ -529,8 +547,8 @@ def fusion_map(
                     # Write a black strip if this region doesn't exist
                     data += b'\x00' * sideLen
     
-    height = (max(z) - min(z) + 1) * sideLen
-    width  = (max(x) - min(x) + 1) * sideLen
+    height = (maxZ - minZ + 1) * sideLen
+    width  = (maxX - minX + 1) * sideLen
     
     logging.info(f'Writing PNG...')
     with open(r'C:\Users\ambro\Documents\fuseMap.png', mode = 'wb') as f:
@@ -638,7 +656,7 @@ def offset_conflicts(destination, source, offset):
     newZmin = bZmin + zOffset
     
     for i in [newXmax, newXmin, newZmax, newZmin]:
-        if i * 16 not in range(-Dimension.sideLength, Dimension.sideLength)
+        if i * 16 not in range(-Dimension.sideLength, Dimension.sideLength):
             return True
     # Cannot paste source outside of world border
     
