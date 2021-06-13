@@ -66,11 +66,6 @@ def fuse(destination : str, source : str, offset : tuple = None):
     <offset>: Tuple of two ints (xNether, zNether) representing the NETHER chunk offset of <source>. The overworld will be moved 8x as far to keep the portals connected
     """
     
-    # These make more sense as their own functions,
-    # but also access to way too many variables defined here
-    # to be separable from this function.
-    # They don't even make sense to use on their own regardless
-    
     def update_entity(entity):
         """Update an entity's data.
         
