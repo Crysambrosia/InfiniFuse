@@ -94,10 +94,13 @@ class Dimension(util.Cache):
         return value
     
     def files(self):
-        """Generate a list of contained region files"""
-        for f in os.listdir(self.folder):
-            if os.path.splitext(f)[1] == '.mca':
-                yield McaFile.open(os.path.join(self.folder, f))
+        """Generate a list of contained .mca files files"""
+        if os.path.exists(self.folder):
+            for f in os.listdir(self.folder):
+                if os.path.splitext(f)[1] == '.mca':
+                    yield McaFile.open(os.path.join(self.folder, f))
+        else:
+            return []
     
     def load_value(self, key):
         """Return McaFile at coords in key"""
