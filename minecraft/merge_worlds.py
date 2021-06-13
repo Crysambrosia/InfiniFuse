@@ -14,7 +14,7 @@ import util
 datefmt = '%Y %b %d %H:%M:%S'
 
 logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
+    format='%(asctime)s %(levelname)-8s | %(message)s',
     level=logging.INFO,
     datefmt=datefmt
 )
@@ -258,12 +258,8 @@ def fuse(destination : str, source : str, offset : tuple = None):
                             z.unsigned = util.get_bits(coords, 32, 64)
                             x += xChunk
                             z += zChunk
-                            try:
-                                coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
-                                coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
-                            except struct.error as e:
-                                logging.info(x, z, coords)
-                                raise e
+                            coords.unsigned = util.set_bits(coords.unsigned, 0, 32, x)
+                            coords.unsigned = util.set_bits(coords.unsigned, 32, 64, z)
                             
                             reference[i] = coords
                         
@@ -342,11 +338,10 @@ def fuse(destination : str, source : str, offset : tuple = None):
     xBlockOverworld = xChunkOverworld * 16
     zBlockOverworld = zChunkOverworld * 16
     
-    cacheSize = 2048
     
     mapIdOffset = len(destination.maps)
     
-    logging.info(f'Transferring {len(source.maps)} Maps...')
+    logging.info(f'Transferring {len(source.maps):,} Maps...')
     for m in source.maps:
         
         mapDimension = m['']['data']['dimension']
@@ -391,7 +386,7 @@ def fuse(destination : str, source : str, offset : tuple = None):
         
         destination.maps.append(m)
     
-    logging.info(f'Transferring {len(source.players)} Players...')
+    logging.info(f'Transferring {len(source.players):,} Players...')
     for uuid, player in source.players.items():
     
         dimension = player['playerdata']['']['Dimension']
@@ -425,6 +420,14 @@ def fuse(destination : str, source : str, offset : tuple = None):
         
         destination.players[uuid] = player
     
+    
+    worldChunkTotal = sum([len(dimension) for dimension in source.dimensions.values()])
+    logging.info(f'Counted {worldChunkTotal:,} chunks to be transferred')
+    
+    cacheSize = 2048
+    progress = 0
+    startTime = time.perf_counter()
+    
     for dimensionName, dimension in source.dimensions.items():
     
         if dimensionName == 'minecraft:overworld':
@@ -441,28 +444,31 @@ def fuse(destination : str, source : str, offset : tuple = None):
             # Transferring other dimensions is not supported
             continue
         
-        chunkTotal = len(dimension)
-        logging.info(f'Transferring {chunkTotal} chunks from {dimensionName}...')
+        dimensionChunkTotal = len(dimension)
+        logging.info(f'Transferring {dimensionChunkTotal:,} chunks from {dimensionName}...')
         
-        startTime = time.perf_counter()
         for i, chunk in enumerate(dimension):
         
             move_chunk(chunk)
             
             if (i + 1) % cacheSize == 0:
-                destination.dimensions[dimensionName].save_all()
-                
-                elapsedTime = time.perf_counter() - startTime
-                completionEpoch = time.time() + ((elapsedTime / (i+1)) * (chunkTotal - (i+1)))
-                completionTime = time.strftime(datefmt, time.localtime(completionEpoch))
-                
-                completion = (i+1) / chunkTotal
-                
-                logging.info(f'{i+1}/{chunkTotal} - {completion:6.2%} - ETC : {completionTime}')
             
-            if i + 1 == chunkTotal:
                 destination.dimensions[dimensionName].save_all()
-                logging.info(f'Finished transferring {i+1} chunks for {dimensionName} !')
+                
+                progress += cacheSize
+                elapsedTime = time.perf_counter() - startTime
+                remainingTime = (elapsedTime / progress) * (worldChunkTotal - progress)
+                completionTime = time.strftime(datefmt, time.localtime(time.time() + remainingTime))
+                
+                completion = progress / worldChunkTotal
+                completionStr = f'{progress:,8}/{worldChunkTotal:,8}'
+                
+                logging.info(f'{completionStr} - {completion:6.2%} - ETC : {completionTime}')
+            
+            if i + 1 == dimensionChunkTotal:
+                progress += (i + 1) % cacheSize
+                destination.dimensions[dimensionName].save_all()
+                logging.info(f'Finished transferring {dimensionChunkTotal:,} chunks from {dimensionName} !')
     
     logging.info(f'Transfer done !')
 
