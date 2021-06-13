@@ -415,8 +415,14 @@ def fuse(destination : str, source : str, offset : tuple = None):
         
         destination.players[uuid] = player
     
-    
-    worldChunkTotal = sum([len(dimension) for dimension in source.dimensions.values()])
+    worldChunkTotal = 0
+    for dimensionName, dimension in source.dimensions.items():
+        if (
+               dimensionName == 'minecraft:overworld' 
+            or dimensionName == 'minecraft:the_nether'
+        ):
+            worldChunkTotal += len(dimension)
+
     logging.info(f'Counted {worldChunkTotal:,} chunks to be transferred')
     
     cacheSize = 2048
