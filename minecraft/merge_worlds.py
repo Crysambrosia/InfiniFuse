@@ -456,7 +456,7 @@ def fuse(destination : str, source : str, offset : tuple = None):
                 completionTime = time.strftime(datefmt, time.localtime(time.time() + remainingTime))
                 
                 completion = progress / worldChunkTotal
-                completionStr = f'{progress:,8}/{worldChunkTotal:,8}'
+                completionStr = f'{progress:8,}/{worldChunkTotal:8,}'
                 
                 logging.info(f'{completionStr} - {completion:6.2%} - ETC : {completionTime}')
             
