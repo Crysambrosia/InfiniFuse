@@ -472,7 +472,7 @@ def fusion_map(
     source : str, 
     dimension : str = 'minecraft:overworld', 
     offset : tuple = None,
-    size : int = 256
+    size : int = 1024
 ):
     """Create a PNG idea of how two maps are going to be fused, each pixel being a chunk.
     Any overlap will be white, blank pixels are black, and occupied chunks are grey
