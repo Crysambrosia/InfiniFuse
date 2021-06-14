@@ -15,7 +15,7 @@ InfiniFuse is a python package that can fuse two minecraft worlds together !
 This will move every chunk, map, and player from <source> to <destination> !
 For now, it only moves the overworld and the nether
 
-Features :
+# Features :
 - Fuse two worlds together !
 - Offsets one of the maps if they overlap
 - All Nether portals stay connected
