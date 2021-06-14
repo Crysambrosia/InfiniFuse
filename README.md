@@ -3,7 +3,7 @@ Minecraft World Editor
 
 InfiniFuse is a python package that can fuse two minecraft worlds together !
 
-#Quick Start Up Guide :
+# Quick Start Up Guide :
 - Install somewhere python can import it
 - Grab the .minecraft/saves subfolder names of two worlds you want to fuse
 - Type this in python :
