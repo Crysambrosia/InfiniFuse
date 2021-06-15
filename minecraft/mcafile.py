@@ -77,7 +77,43 @@ class McaFile(collections.abc.Sequence, util.Cache):
     def chunk_key(cls, xChunk, zChunk):
         """Return key of chunk based on its region-relative coordinates"""
         return cls.sideLength * zChunk + xChunk
+
+    def convert_key(self, key):
     
+        if not isinstance(key, int):
+        
+            try:
+                xChunk, zChunk = key
+                key = self.sideLength * zChunk + xChunk
+            except:
+                raise TypeError(f'Indices must be int or sequence of 2 coords, not {type(key)}')
+        
+        if key > self.maxLength:
+            raise IndexError(f'Key must be 0-{self.maxLength}, not {key}')
+        
+        return key
+
+    def convert_value(self, value):
+        if not isinstance(value, Chunk):
+            raise TypeError(f'Value must be a Chunk, not {value}')
+        return value
+
+    @property
+    def coords(self):
+        """Coords of origin block of this file"""
+        return tuple(i * 16 for i in self.coords_chunk)
+ 
+    @property
+    def coords_chunk(self):
+        """Chunk grid coords of origin chunk of this file (16x16 blocks)"""
+        return tuple(i * self.sideLength for i in self.coords_region)
+
+    @property
+    def coords_region(self):
+        """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
+        _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
+        return (int(regionX), int(regionZ))
+
     @classmethod
     def find_chunk(cls, folder : str, x : int, z : int):
         """Return containing file and key of chunk at <x> <z>"""
@@ -89,7 +125,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
         key = cls.chunk_key(xChunk = xChunk, zChunk = zChunk)
         
         return path, key
-    
+
     def get_header(self, key):
         """Return header info of chunk <key> or None if it does not exist"""
         
@@ -106,23 +142,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
             return None
         else:
             return {'offset' : offset, 'sectorCount' : sectorCount, 'timestamp' : timestamp}
-    
-    @property
-    def coords(self):
-        """Coords of origin block of this file"""
-        return tuple(i * 16 for i in self.coords_chunk)
-    
-    @property
-    def coords_chunk(self):
-        """Chunk grid coords of origin chunk of this file (16x16 blocks)"""
-        return tuple(i * self.sideLength for i in self.coords_region)
-    
-    @property
-    def coords_region(self):
-        """Region grid coords of this file (512*512 blocks, 32x32 chunks)"""
-        _, regionX, regionZ, _ = os.path.basename(self.path).split('.')
-        return (int(regionX), int(regionZ))
-    
+
     def load_value(self, key):
         """Return data for chunk <key>"""
         header = self.get_header(key)
@@ -136,66 +156,19 @@ class McaFile(collections.abc.Sequence, util.Cache):
         data = self.value[offset + 5 : offset + length + 4]
         
         return Chunk.from_bytes(decompress(data, compression)[0])
-    
+
     @property
     def maxLength(self):
         """Maximum chunk capacity of this file"""
         return self.sideLength ** 2
-    
-    def set_header(self, 
-        key : int, 
-        offset : int = None, 
-        sectorCount : int = None,
-        timestamp : int = None
-    ):
-        """Set <offset>, <sectorCount> and <timestamp> of chunk <key>"""
-        self.convert_key(key)
-        
-        if offset is not None:
-            self.value[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
-        
-        if sectorCount is not None:
-            self.value[key*4 + 3] = sectorCount
-        
-        if timestamp is not None:
-            timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
-            self.value[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
 
-    def convert_key(self, key):
-    
-        if not isinstance(key, int):
-        
-            try:
-                xChunk, zChunk = key
-                key = self.sideLength * zChunk + xChunk
-            except:
-                raise TypeError(f'Indices must be int or sequence of 2 coords, not {type(key)}')
-        
-        if key > self.maxLength:
-            raise IndexError(f'Key must be 0-{self.maxLength}, not {key}')
-        
-        return key
-   
-    def convert_value(self, value):
-        if not isinstance(value, Chunk):
-            raise TypeError(f'Value must be a Chunk, not {value}')
-        return value
-    
-    def read(self):
-        """Load data from file as self.path to self.value"""
-        if os.path.exists(self.path):
-            with open(self.path, mode = 'rb') as f:
-                self.value = bytearray(f.read())
-        else:
-            self.value = bytearray(self.sectorLength*2)
-    
     @classmethod
     def open(cls, path : str, protected : bool = True):
         """Open from direct file path"""
         f = cls(path = path, protected = protected)
         f.read()
         return f
-    
+
     @property
     def path(self):
         """Raises a clear exception in case of invalid file operations"""
@@ -203,11 +176,19 @@ class McaFile(collections.abc.Sequence, util.Cache):
             raise ValueError('McaFile has no file path.')
         
         return self._path
-    
+
     @path.setter
     def path(self, value):
         self._path = value
-   
+
+    def read(self):
+        """Load data from file as self.path to self.value"""
+        if os.path.exists(self.path):
+            with open(self.path, mode = 'rb') as f:
+                self.value = bytearray(f.read())
+        else:
+            self.value = bytearray(self.sectorLength*2)
+
     def save_value(self, key, value):
         """Save <value> as data for entry <key>"""
         
@@ -275,7 +256,26 @@ class McaFile(collections.abc.Sequence, util.Cache):
         self.value[offset : offset + 4] = length.to_bytes(4, 'big')
         self.value[offset + 4] = compression
         self.value[offset + 5 : offset + length + 4] = data
-    
+
+    def set_header(self, 
+        key : int, 
+        offset : int = None, 
+        sectorCount : int = None,
+        timestamp : int = None
+    ):
+        """Set <offset>, <sectorCount> and <timestamp> of chunk <key>"""
+        self.convert_key(key)
+        
+        if offset is not None:
+            self.value[key*4 : key*4 + 3] = offset.to_bytes(length = 3, byteorder = 'big')
+        
+        if sectorCount is not None:
+            self.value[key*4 + 3] = sectorCount
+        
+        if timestamp is not None:
+            timestamp = timestamp.to_bytes(length = 4, byteorder = 'big')
+            self.value[key*4 + self.sectorLength : key*4 + self.sectorLength + 4] = timestamp
+
     def write(self):
         """Save all changes from cache and write them to disk"""
         self.save_all()
