@@ -19,11 +19,11 @@ class PNG():
     
     def __init__( self, 
         data : bytearray = None,
-        width : int = 1,
-        height : int = 1,
-        bitdepth : int = 8,
-        colortype : int = 0,
-        interlaced : bool = False
+        width : int = None,
+        height : int = None,
+        bitdepth : int = None,
+        colortype : int = None,
+        interlaced : bool = None
     ):
         """Create a PNG object
     
@@ -34,10 +34,13 @@ class PNG():
         <interlaced>: True if the image is interlaced, defaults to False
         """
         
-        self.width = width
-        self.height = height
-        self.set_colortype(colortype = colortype, bitdepth = bitdepth)
-        self.interlaced = interlaced
+        self.width = width or 1
+        self.height = height or 1
+        self.set_colortype(
+            colortype = colortype or 0, 
+            bitdepth = bitdepth
+        )
+        self.interlaced = interlaced or False
         
         if data is not None:
             self.data = data
@@ -82,6 +85,28 @@ class PNG():
         endBit = startBit + self.pixelBitLength
         
         return startByte, endByte, startBit, endBit
+
+    @classmethod
+    def from_iterable( cls, 
+        iterable, 
+        shade : int = 1
+    ):
+        """Create a Greyscale PNG from provided iterable
+        
+        <iterable> : A two-dimensional array of integer-like values.
+                     All rows must be of the same length !
+        <shade>    : Values from the iterable are multiplied by this value
+        """
+        return cls(
+            data = bytearray(
+                b''.join([b'\x00' + bytearray([i * shade for i in row]) for row in iterable])
+            ),
+            width  = len(iterable),
+            height = len(iterable[0]),
+            bitdepth = 8,
+            colortype = 0,
+            interlaced = False
+        )
 
     def get_line(self, y : int):
         """Return data of scanline <y>"""
