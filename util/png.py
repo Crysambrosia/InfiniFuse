@@ -47,14 +47,13 @@ class PNG():
     def content(self):
         """Return a bytearray of this PNG's content"""
         return self.header() + self.IHDR() + self.IDAT() + self.IEND()
-    
+
     @staticmethod
     def encode_block(name : str, content : bytearray):
         """Return an encoded PNG block <name> containing <content>"""
         block = name.encode('ascii') + content
         return Int4(len(content)) + block + Int4(zlib.crc32(block))
-    
-    
+
     def find_line(self, y : int):
         """Return address info of scanline <y>
         
@@ -66,7 +65,7 @@ class PNG():
         lineStart = y * self.lineByteLength
         lineEnd = lineStart + self.lineByteLength
         return lineStart, lineEnd
-    
+
     def find_pixel(self, x : int, y : int):
         """Return address info for pixel at (<x>, <y>)
         
@@ -83,12 +82,12 @@ class PNG():
         endBit = startBit + self.pixelBitLength
         
         return startByte, endByte, startBit, endBit
-    
+
     def get_line(self, y : int):
         """Return data of scanline <y>"""
         lineStart, lineEnd = self.find_line(y)
         return self.data[lineStart : lineEnd]
-    
+
     def get_pixel(self, x : int, y : int):
         """Return data of pixel at (<x>, <y>)"""
         
@@ -99,30 +98,30 @@ class PNG():
             start = startBit,
             end   = endBit
         )
-    
+
     @staticmethod
     def header():
         """PNG File header, never changes"""
         return b'\x89' + 'PNG\r\n\x1A\n'.encode('ascii')
-    
+
     @property
     def height(self):
         """Number of lines in the image"""
         return self._height
-    
+
     @height.setter
     def height(self, value):
         if not 0 < value <= self.maxSize:
             raise ValueError(f'Height must be 0 - {self.maxSize}')
         self._height = value
-    
+
     def IDAT(self):
         """Return data block of this image"""
         compressor = zlib.compressobj()
         content = compressor.compress(self.data)
         content += compressor.flush()
         return self.encode_block(name = 'IDAT', content = content)
-    
+
     @staticmethod
     def IEND():
         """Return ending block. Always the same"""
@@ -227,7 +226,7 @@ class PNG():
     def width(self):
         """Number of pixels per line of the image"""
         return self._width
-    
+
     @width.setter
     def width(self, value):
         if not 0 < value <= self.maxSize:
