@@ -337,11 +337,11 @@ def fuse(destination : str, source : str, offset : tuple = None):
     mapIdOffset = len(destination.maps)
     
     logging.info(f'Transferring {len(source.maps):,} Maps...')
-    for m in source.maps:
+    for i, m in enumerate(source.maps):
         
         mapDimension = m['']['data']['dimension']
         
-        if isinstance(mapDimension, TAG.Byte):
+        if isinstance(mapDimension, TAG.Integer):
             if mapDimension == 0:
                 mapDimension = 'minecraft:overworld'
                 
@@ -361,8 +361,10 @@ def fuse(destination : str, source : str, offset : tuple = None):
             xBlock = xBlockNether
             zBlock = zBlockNether
         else:
-            continue
-            # Other dimensions are not transferred, so we don't bother with their maps
+            logging.warning(f'Did not offset map {i} from dimension {mapDimension}')
+            xBlock = 0
+            zBlock = 0
+            # Other dimensions are not transferred, so we don't offset their maps
         
         m['']['data']['xCenter'] += xBlock
         m['']['data']['zCenter'] += zBlock
