@@ -130,8 +130,10 @@ def fuse(destination : str, source : str, offset : tuple = None):
                 'PatrolTarget',
                 'WanderTarget'
             ]:
-                entity[key]['X'] += xBlock
-                entity[key]['Z'] += zBlock
+                if 'X' in entity[key]:
+                    entity[key]['X'] += xBlock
+                if 'Z' in entity[key]:
+                    entity[key]['Z'] += zBlock
                 
             elif key in [
                 'AX',
@@ -341,18 +343,17 @@ def fuse(destination : str, source : str, offset : tuple = None):
         
         mapDimension = m['']['data']['dimension']
         
-        if isinstance(mapDimension, TAG.Integer):
-            if mapDimension == 0:
-                mapDimension = 'minecraft:overworld'
-                
-            elif mapDimension == -1:
-                mapDimension = 'minecraft:the_nether'
-                
-            elif mapDimension == 1:
-                mapDimension = 'minecraft:the_end'
-                
-            else:
-                mapDimension = 'unknown'
+        if mapDimension == 0:
+            mapDimension = 'minecraft:overworld'
+            
+        elif mapDimension == -1:
+            mapDimension = 'minecraft:the_nether'
+            
+        elif mapDimension == 1:
+            mapDimension = 'minecraft:the_end'
+            
+        else:
+            mapDimension = 'unknown'
         
         if mapDimension == 'minecraft:overworld':
             xBlock = xBlockOverworld
