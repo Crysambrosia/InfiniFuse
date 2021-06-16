@@ -216,6 +216,27 @@ def fuse(destination : str, source : str, offset : tuple = None):
     def move_chunk(chunk):
         """Move chunk from source to destination"""
         
+        def update_BB(BB):
+            """Return updated bounding box for a Start or a Child
+            
+            Display an info message if a corrupted bounding box is found
+            """
+            for i in BB:
+                if i > Dimension.sideLength:
+                    x = chunk['']['Level']['xPos'] - xChunk
+                    z = chunk['']['Level']['zPos'] - zChunk
+                    logging.warning(
+                        f'Transferring possibly corrupted structure bounding-box in chunk {x} {z} as-is'
+                    )
+                    break
+            else:
+                BB[0] += xBlock
+                BB[2] += zBlock
+                BB[3] += xBlock
+                BB[5] += zBlock
+            
+            return BB
+        
         chunk['']['Level']['xPos'] += xChunk
         chunk['']['Level']['zPos'] += zChunk
         
@@ -266,21 +287,16 @@ def fuse(destination : str, source : str, offset : tuple = None):
             if 'Starts' in chunk['']['Level']['Structures']:
                 for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
                     if start['id'] != 'INVALID':
-                        
-                        start['BB'][0] += xBlock
-                        start['BB'][2] += zBlock
-                        start['BB'][3] += xBlock
-                        start['BB'][5] += zBlock
+                    
+                        start['BB'] = update_BB(start['BB'])
                         
                         start['ChunkX'] += xChunk
                         start['ChunkZ'] += zChunk
                         
                         if 'Children' in start:
                             for i, child in enumerate(start['Children']):
-                                child['BB'][0] += xBlock
-                                child['BB'][2] += zBlock
-                                child['BB'][3] += xBlock
-                                child['BB'][5] += zBlock
+                            
+                                child['BB'] = update_BB(child['BB'])
                                 
                                 for key in child:
                                     if key == 'Entrances':
