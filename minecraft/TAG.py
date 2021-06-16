@@ -106,7 +106,7 @@ class Base(ABC):
         try:
             self.encode(newValue) #Raises an exception if newValue is incompatible
         except Exception as e:
-            raise type(e)(e.message + f'(Value was {newValue})')
+            raise type(e)(str(e) + f'(Invalid value {newValue} for {type(self)})')
         self._value = newValue
 
     def __eq__(self, other):
