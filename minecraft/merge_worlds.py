@@ -351,9 +351,6 @@ def fuse(destination : str, source : str, offset : tuple = None):
             
         elif mapDimension == 1:
             mapDimension = 'minecraft:the_end'
-            
-        else:
-            mapDimension = 'unknown'
         
         if mapDimension == 'minecraft:overworld':
             xBlock = xBlockOverworld
