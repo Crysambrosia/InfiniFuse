@@ -74,10 +74,12 @@ def fuse(destination : str, source : str, offset : tuple = None):
         entity['Pos'][0] += xBlock
         entity['Pos'][2] += zBlock
         
-        for idx, _ in enumerate(entity['UUID']):
-            entity['UUID'][idx] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
         
         for key in entity:
+        
+            if key == 'UUID':
+                for i, _ in enumerate(entity['UUID']):
+                    entity['UUID'][i] = TAG.Int(random.randint(-2_147_483_648, 2_147_483_647))
         
             if key == 'Passengers':
                 for passengerIdx, passenger in enumerate(entity['Passengers']):
