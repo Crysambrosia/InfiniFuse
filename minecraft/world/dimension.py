@@ -107,6 +107,37 @@ class Dimension(util.Cache):
         xRegion, zRegion = key
         return McaFile.open(path = os.path.join(self.folder, f'r.{xRegion}.{zRegion}.mca'))
     
+    def png_map(self, size : int = 0, shade : int = 127):
+        """Return a PNG map of chunk locations
+        
+        <limit> : The map will be the closest multiple of 32 to this in pixel side length
+        <shade> : 0 - 255 shade of grey for existing pixels, defaults to 127
+        """
+        limit = size // 64
+        regionPNGs = {}
+        
+        for z in range(-limit, limit):
+            regionPNGs[z] = {}
+            for x in range(-limit, limit):
+                f = util.Cache.__getitem__(self, key = (x, z))
+                regionPNGs[z][x] = util.PNG.from_iterable(f.binary_map(), shade = shade)
+        
+        data = bytearray()
+        for z in regionPNGs:
+            for line in range(McaFile.sideLength):
+                data += b'\x00' # No filter
+                for x in regionPNGs[z]:
+                    data += regionPNGs[z][x].get_line(line)
+        
+        return util.PNG(
+            data = data, 
+            height = limit * 64, 
+            width = limit * 64,
+            bitdepth = 8,
+            colortype = 0,
+            interlaced = False
+        )
+    
     def save_all(self):
         """Save all McaFiles from cache"""
         with concurrent.futures.ProcessPoolExecutor() as e:
