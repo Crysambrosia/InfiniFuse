@@ -61,7 +61,7 @@ class McaFile(collections.abc.Sequence, util.Cache):
     def binary_map(self):
         """Return a table of booleans, representing whether a chunk exists or not"""
         length = self.sideLength
-        return [[self.chunk_key(x, z) in self for z in range(length)] for x in range(length)]
+        return [[self.chunk_key(x, z) in self for x in range(length)] for z in range(length)]
    
     @classmethod
     def chunk_exists(cls, folder : str, x : int, z : int):

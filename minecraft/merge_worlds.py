@@ -711,8 +711,8 @@ def offset_conflicts(destination, source, offset):
             searchZmax = overlapZmaxChunk if zRegion == overlapZmaxRegion else defaultSearchMax
             searchZmin = overlapZminChunk if zRegion == overlapZminRegion else defaultSearchMin
             
-            for x, row in enumerate(aMap[coords][searchXmin : searchXmax + 1]):
-                for z, chunkExists in enumerate(row[searchZmin : searchZmax + 1]):
+            for z, row in enumerate(aMap[coords][searchZmin : searchZmax + 1]):
+                for x, chunkExists in enumerate(row[searchXmin : searchXmax + 1]):
                 
                     if chunkExists:
                         
@@ -725,7 +725,7 @@ def offset_conflicts(destination, source, offset):
                         realZregion, realZchunk = divmod(realZ, sideLen)
                         
                         if (realXregion, realZregion) in bMap:
-                            conflict = bMap[realXregion, realZregion][realXchunk][realZchunk]
+                            conflict = bMap[realXregion, realZregion][realZchunk][realXchunk]
                     
                     if conflict:
                         break
