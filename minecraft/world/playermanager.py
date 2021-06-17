@@ -24,14 +24,18 @@ class PlayerManager(MutableMapping):
     
     def __iter__(self):
         """Return all contained player UUIDs"""
+        path = os.path.join(self.folder, 'playerdata')
         
-        for name in os.listdir(os.path.join(self.folder, 'playerdata')):
-            basename = os.path.basename(name)
-            uuid, ext = os.path.splitext(basename)
-            if ext == '.dat':
-                yield uuid
-            else:
-                continue
+        if os.path.exists(path):
+            for name in os.listdir(path):
+                basename = os.path.basename(name)
+                uuid, ext = os.path.splitext(basename)
+                if ext == '.dat':
+                    yield uuid
+                else:
+                    continue
+        else:
+            return None
     
     def __getitem__(self, key):
         """Return a player's data from a hyphenated-hexadecimal UUID"""
@@ -54,12 +58,14 @@ class PlayerManager(MutableMapping):
     def __len__(self):
         """How many players are contained"""
         count = 0
+        path = os.path.join(self.folder, 'playerdata')
         
-        for name in os.listdir(os.path.join(self.folder, 'playerdata')):
-            basename = os.path.basename(name)
-            uuid, ext = os.path.splitext(basename)
-            if ext == '.dat':
-                count += 1
+        if os.path.exists(path):
+            for name in os.listdir(path):
+                basename = os.path.basename(name)
+                uuid, ext = os.path.splitext(basename)
+                if ext == '.dat':
+                    count += 1
         
         return count
     
