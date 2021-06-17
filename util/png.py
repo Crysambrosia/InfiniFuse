@@ -109,9 +109,12 @@ class PNG():
         )
 
     def get_line(self, y : int):
-        """Return data of scanline <y>"""
+        """Return data of scanline <y>
+        
+        Does not include scanline filter byte !
+        """
         lineStart, lineEnd = self.find_line(y)
-        return self.data[lineStart : lineEnd]
+        return self.data[lineStart + 1: lineEnd]
 
     def get_pixel(self, x : int, y : int):
         """Return data of pixel at (<x>, <y>)"""
@@ -225,13 +228,16 @@ class PNG():
         self.bitdepth  = bitdepth
 
     def set_line(self, y : int, value : bytearray):
-        """Set line at <x> <y> to <value>"""
+        """Set line at <x> <y> to <value>
+        
+        Value must not include the filter byte !
+        """
         lineStart, lineEnd = self.find_line(y)
         
-        if len(value) != self.lineByteLength:
-            raise ValueError(f'Lines must be exactly {self.lineByteLength} bytes long for this PNG !')
+        if len(value) != self.lineByteLength - 1:
+            raise ValueError(f'Lines must be exactly {self.lineByteLength - 1} bytes long for this PNG !')
         
-        self.data[lineStart:lineEnd] = value
+        self.data[lineStart + 1:lineEnd] = value
 
     def set_pixel(self, x : int, y : int, value : int):
         """Set pixel at <x> <y> to <value>
