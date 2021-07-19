@@ -1,6 +1,7 @@
 from collections.abc import MutableMapping
 from minecraft.datfile import DatFile
 import json
+import logging
 import minecraft.TAG as TAG
 import os
 
@@ -10,17 +11,22 @@ class PlayerManager(MutableMapping):
     def __init__(self, folder : str):
         self.folder = folder
     
-    def __delitem__(self, key):
-        """Delete a player from a hyphenated-hexadecimal UUID"""
-        uuid = key
+    def __contains__(self, uuid):
+        """Checks whether this map contains player <uuid>"""
+        path = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+        return os.path.exists(path)
+    
+    def __delitem__(self, uuid):
+        """Delete a player from a hyphenated-hexadecimal uuid"""
         
-        dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
-        if os.path.exists(dataPath):
-            os.remove(dataPath)
+        path = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+        if os.path.exists(path):
+            os.remove(path)
         
-        statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
-        if os.path.exists(statsPath):
-            os.remove(statsPath)
+        for subfolder in ['advancements', 'stats']:
+            path = os.path.join(self.folder, subfolder, f'{uuid}.json')
+            if os.path.exists(path):
+                os.remove(path)
     
     def __iter__(self):
         """Return all contained player UUIDs"""
@@ -37,23 +43,30 @@ class PlayerManager(MutableMapping):
         else:
             return None
     
-    def __getitem__(self, key):
-        """Return a player's data from a hyphenated-hexadecimal UUID"""
+    def __getitem__(self, uuid):
+        """Return player <uuid>'s data
         
-        uuid = key
+        <uuid> : A hyphenated-hexadecinal Minecraft Player UUID
+        """
         
-        dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
-        with DatFile(dataPath) as f:
-            playerdata = TAG.Compound(f)
+        if uuid not in self:
+            raise KeyError(f'Player {uuid} has no playerdata')
         
-        statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
-        if os.path.exists(statsPath):
-            with open(statsPath, mode = 'r') as f:
-                stats = json.load(f)
-        else:
-            stats = {}
+        player = {}
         
-        return {'playerdata' : playerdata, 'stats' : stats, 'uuid' : uuid}
+        path = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+        with DatFile(path) as f:
+            player['playerdata'] = TAG.Compound(f)
+        
+        for subfolder in ['advancements', 'stats']:
+            path = os.path.join(self.folder, subfolder, f'{uuid}.json')
+            if os.path.exists(path):
+                with open(path, mode = 'r') as f:
+                    player[subfolder] = json.load(f)
+            else:
+                player[subfolder] = {}
+        
+        return player
     
     def __len__(self):
         """How many players are contained"""
@@ -69,27 +82,32 @@ class PlayerManager(MutableMapping):
         
         return count
     
-    def  __setitem__(self, key, value):
-        """Write player data for given UUID in <key>
+    def  __setitem__(self, uuid, player):
+        """Write data for player <uuid>
         
-        Please provide data in the same format as __getitem__ returns
+        <uuid>   : A hyphenated-hexadecinal Minecraft Player UUID
+        <player> : A dict representing a player, as returned by playermanager.__getitem__
         """
-        uuid = key
         
-        if 'playerdata' in value:
-            dataPath = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
-            with DatFile(dataPath) as f:
-                f.value = value['playerdata']
+        if 'playerdata' in player:
+            path = os.path.join(self.folder, 'playerdata', f'{uuid}.dat')
+            with DatFile(path) as f:
+                f.value = player['playerdata']
         
-        if 'stats' in value:
-            statsPath = os.path.join(self.folder, 'stats', f'{uuid}.json')
-            with open(statsPath, mode = 'w') as f:
-                json.dump(value['stats'], f)
+        for subfolder in ['advancements', 'stats']:
+            if subfolder in player:
+                path = os.path.join(self.folder, subfolder, f'{uuid}.json')
+                with open(path, mode = 'w') as f:
+                    json.dump(player[subfolder], f)
     
-    def update_old_players(self):
-        """Update outdated player files to the latest format
+    def setup_conversion(self, target_uuid : str, replacement_uuid : str):
+        """Rename all files of player <target_uuid> to <replacement_uuid>
         
-        This is extremely tedious to program, as it requires a full LUT of IDs to names
-        and I can't be bothered to do all that BORING work right now.
+        You should use your own uuid as <replacement_uuid>.
+        Load the map to make the game convert <target_uuid>'s files to the latest format
+        and then run teardown_conversion to finish up !
         """
-        pass
+        temp_folder = os.path.join(os.environ['temp'], 'InfiniFuse')
+        os.mkdir(temp_folder)
+        
+    
