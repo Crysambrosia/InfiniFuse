@@ -24,7 +24,7 @@ class World():
     @classmethod
     def from_saves(cls, name : str):
         """Open a world from name of save folder"""
-        appdata = os.environ['APPDATA']
+        appdata = os.environ['appdata']
         folder = os.path.join(appdata, '.minecraft', 'saves', name)
         return cls(folder)
     
