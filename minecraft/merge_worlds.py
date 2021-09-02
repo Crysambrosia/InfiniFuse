@@ -290,10 +290,14 @@ def fuse(destination : str, source : str, offset : tuple = None):
                 for startKey, start in chunk['']['Level']['Structures']['Starts'].items():
                     if start['id'] != 'INVALID':
                     
-                        start['BB'] = update_BB(start['BB'])
+                        if 'BB' in start:
+                            start['BB'] = update_BB(start['BB'])
                         
-                        start['ChunkX'] += xChunk
-                        start['ChunkZ'] += zChunk
+                        if ChunkX in start:
+                            start['ChunkX'] += xChunk
+                            
+                        if ChunkZ in start:
+                            start['ChunkZ'] += zChunk
                         
                         if 'Children' in start:
                             for i, child in enumerate(start['Children']):
