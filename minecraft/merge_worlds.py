@@ -293,10 +293,10 @@ def fuse(destination : str, source : str, offset : tuple = None):
                         if 'BB' in start:
                             start['BB'] = update_BB(start['BB'])
                         
-                        if ChunkX in start:
+                        if 'ChunkX' in start:
                             start['ChunkX'] += xChunk
                             
-                        if ChunkZ in start:
+                        if 'ChunkZ' in start:
                             start['ChunkZ'] += zChunk
                         
                         if 'Children' in start:
